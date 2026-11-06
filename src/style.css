@@ -99,3 +99,28 @@ details.addnote form { display: grid; grid-template-columns: 1fr auto auto; gap:
   .section-title { position: static; }
 }
 body.plan .item.done .body > .text, body.plan .item.done .body h3 { color: inherit; text-decoration: none; }
+
+/* QC */
+td.flag { color: var(--warn); font-weight: 650; background: var(--warn-soft); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.barwrap { width: 22%; padding-right: 0; }
+.barcell { display: block; height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.barcell i { display: block; height: 100%; background: var(--accent); }
+.card.ok { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+
+/* 96-well plate */
+.plate { display: grid; grid-template-columns: 1.6em repeat(12, minmax(54px, 1fr)); gap: 4px; min-width: 760px; }
+.ph { text-align: center; color: var(--muted); font-size: 0.78rem; align-self: center; }
+.well { appearance: none; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); min-height: 46px; padding: 2px 3px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; text-align: left; overflow: hidden; }
+.well:hover { border-color: var(--accent); }
+.wn { font-size: 0.62rem; color: var(--muted); line-height: 1; }
+.ws { font-size: 0.72rem; font-weight: 600; line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.well.flagged { border-style: dashed; border-color: var(--warn); box-shadow: inset 0 0 0 2px var(--warn-soft); }
+.well.flagged .wn::after { content: " ⚠"; color: var(--warn); }
+.well.used:not(.mine) { background: repeating-linear-gradient(45deg, transparent 0 5px, var(--line) 5px 7px); }
+.lg { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; }
+.lg i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+.lg i.sw { border: 1.5px solid var(--line); background: var(--card); }
+.lg i.sw.flagged { border: 1.5px dashed var(--warn); }
+.lg i.sw.used { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--line) 3px 5px); }

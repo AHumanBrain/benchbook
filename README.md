@@ -5,6 +5,8 @@ A bench-side notebook for library prep and hybrid capture. It turns a spreadshee
 - **Plan**: enter the number of reactions and the master-mix overage. Every volume updates, including per-reaction additions that get no overage. Print it as a bench sheet.
 - **Bench**: tick steps off, start timers for the binds, drys and incubations (with an audible alert), and see thermocycler programs on screen. Each tick is timestamped.
 - **Notes**: attach a note to any step and tag it *observation*, *deviation*, *error* or *idea*. The Notes tab collects them, so lessons stop living in a spreadsheet's right-hand column.
+- **QC**: paste a NanoDrop export (copied from a spreadsheet), a Qubit CSV, or two columns of name and concentration. It reads concentration, unit, 260/280 and 260/230, converts units to ng/µL, and flags low concentration, odd ratios and duplicate names. Thresholds are editable and are generic starting points.
+- **Plate & pools**: lay libraries onto a 96-well UDI plate and group them into hyb pools. New batches fill the next free wells on the plate, skipping wells that other batches used and wells you flagged (low volume, contamination). A pooling plan then gives the µL of each library for an equal-mass pool and says which library limits it when the volume is not enough. Downloads a plate map as CSV.
 - **Batch info**: run lineage (prep, hyb, capture, sequencing dates), thermocycler, and which batches were co-processed.
 
 Everything is stored in your browser (localStorage). Nothing is uploaded. Export a batch to a JSON file to keep a copy, or to move it to another device.
@@ -53,8 +55,8 @@ The tests check the master-mix arithmetic against the original workbook (for exa
 
 ## Not built yet
 
-- QC import (paste NanoDrop, Qubit or TapeStation output; flag 260/280 and 260/230; pooling math for a 1 µg hyb)
-- Index plate and pool map (UDI wells, which library went into which hyb)
+- Index sequences on the plate map (they are kit-specific: a paste-in of your UDI manifest would add them to the CSV and a sequencer sample sheet)
 - A diff of "what changed since the last batch", and cross-batch yield trends
 - Offline use (service worker) and syncing across devices
 - Sequencing run metrics (NovaSeq InterOp) in a run dashboard
+- Molar (nM) pooling: pooling is by mass (ng), and nM measurements are shown but not used

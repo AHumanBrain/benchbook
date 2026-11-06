@@ -2,27 +2,14 @@ import {
   fmt, fmtDuration, mixTable, programSeconds, flattenProtocol, newBatch, progress, collectNotes, NOTE_TAGS,
 } from './calc.js';
 
+import { db, persist, ensureBatch, esc, clock, download } from './shared.js';
+import * as qcUI from './ui_qc.js';
+import * as plateUI from './ui_plate.js';
+
 const $app = document.getElementById('app');
 const $nav = document.getElementById('topnav');
 
-/* ---------- storage (localStorage, with an in-memory fallback) ---------- */
-const KEY = 'benchbook.v1';
-let memory = { batches: {} };
-const store = {
-  load() {
-    try { return JSON.parse(localStorage.getItem(KEY)) || { batches: {} }; } catch { return memory; }
-  },
-  save(data) {
-    memory = data;
-    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* private mode: keep in memory */ }
-  },
-};
-let db = store.load();
-const persist = () => store.save(db);
-
 /* ---------- helpers ---------- */
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const clock = iso => (iso ? new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 const protocolCache = {};
 async function loadProtocol(id) {
   if (!protocolCache[id]) protocolCache[id] = await (await fetch(`protocols/${id}.json`)).json();
@@ -30,12 +17,6 @@ async function loadProtocol(id) {
 }
 const batchOf = id => db.batches[id];
 const stateOf = (b, key) => (b.state[key] ??= { done: null, timer: null, notes: [] });
-
-function download(name, text, type = 'application/json') {
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([text], { type })), download: name });
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
 
 /* ---------- timers ---------- */
 const beeped = new Set();
@@ -155,7 +136,7 @@ function header(b, tab) {
   const items = flattenProtocol(b.protocol);
   const p = progress(b, items);
   const pct = p.total ? Math.round((100 * p.done) / p.total) : 0;
-  const tabs = [['bench', 'Bench'], ['plan', 'Plan'], ['notes', `Notes (${collectNotes(b, items).length})`], ['info', 'Batch info']]
+  const tabs = [['bench', 'Bench'], ['plan', 'Plan'], ['notes', `Notes (${collectNotes(b, items).length})`], ['qc', 'QC'], ['plate', 'Plate & pools'], ['info', 'Batch info']]
     .map(([id, label]) => `<a class="tab" href="#/b/${b.id}/${id}" ${id === tab ? 'aria-current="page"' : ''}>${label}</a>`).join('');
   return `<h1>${esc(b.name)}</h1>
     <div class="muted small">${esc(b.protocol.name)} · ${b.n} ${esc(b.protocol.unit_label)} · overage ${b.overagePct}%</div>
@@ -249,7 +230,9 @@ async function render() {
   if (parts[0] === 'b' && batchOf(parts[1])) {
     const b = batchOf(parts[1]);
     const tab = parts[2] || 'bench';
-    html = tab === 'notes' ? viewNotes(b) : tab === 'info' ? viewInfo(b) : viewProtocol(b, tab === 'plan' ? 'plan' : 'bench');
+    document.body.className = 'bench';
+    html = tab === 'notes' ? viewNotes(b) : tab === 'info' ? viewInfo(b) : tab === 'qc' ? qcUI.render(b, header)
+      : tab === 'plate' ? plateUI.render(b, header) : viewProtocol(b, tab === 'plan' ? 'plan' : 'bench');
     $nav.innerHTML = '<a class="btn small" href="#/">All batches</a>';
     document.title = `${b.name} · benchbook`;
   } else {
@@ -271,6 +254,8 @@ $app.addEventListener('click', async e => {
   if (!el) return;
   const act = el.dataset.act;
   const b = currentBatch();
+  const ext = qcUI.clicks[act] || plateUI.clicks[act];
+  if (ext && b) { const r = await ext(el, b, e); persist(); if (r !== 'none') render(); return; }
   if (act === 'timer-start' && b) {
     const it = flattenProtocol(b.protocol).find(i => i.key === el.dataset.key);
     stateOf(b, it.key).timer = new Date(Date.now() + timerSeconds(it.step) * 1000).toISOString();
@@ -281,7 +266,7 @@ $app.addEventListener('click', async e => {
   } else if (act === 'print') {
     window.print(); return;
   } else if (act === 'export' && b) {
-    download(`${b.name.replace(/\W+/g, '_')}.benchbook.json`, JSON.stringify(b, null, 2)); return;
+    download(`${b.name.replace(/\W+/g, '_')}.benchbook.json`, JSON.stringify({ ...b, plateSnapshot: db.plates[b.plate.plateId] || null }, null, 2)); return;
   } else if (act === 'delete' && b) {
     if (!confirm(`Delete "${b.name}"? Export it first if you want a copy.`)) return;
     delete db.batches[b.id]; persist(); location.hash = '#/'; return;
@@ -292,7 +277,9 @@ $app.addEventListener('click', async e => {
   } else if (act === 'load-example') {
     const ex = await (await fetch('examples/example_batch.json')).json();
     ex.id = `ex${Date.now().toString(36)}`; ex.created = new Date().toISOString();
-    db.batches[ex.id] = ex; persist(); location.hash = `#/b/${ex.id}/bench`; return;
+    const snap = ex.plateSnapshot; delete ex.plateSnapshot;
+    if (snap) { const pid = `pex${Date.now().toString(36)}`; db.plates[pid] = { ...snap, id: pid }; ex.plate.plateId = pid; }
+    db.batches[ex.id] = ensureBatch(ex); persist(); location.hash = `#/b/${ex.id}/bench`; return;
   } else return;
   persist(); render();
 });
@@ -300,6 +287,8 @@ $app.addEventListener('click', async e => {
 $app.addEventListener('change', async e => {
   const el = e.target;
   const b = currentBatch();
+  const ext = qcUI.changes[el.dataset.chg] || plateUI.changes[el.dataset.chg];
+  if (ext && b) { const r = await ext(el, b, e); persist(); if (r !== 'none') render(); return; }
   if (el.dataset.act === 'toggle' && b) {
     const st = stateOf(b, el.dataset.key);
     st.done = el.checked ? new Date().toISOString() : null;
@@ -316,7 +305,9 @@ $app.addEventListener('change', async e => {
       const imp = JSON.parse(await el.files[0].text());
       if (!imp.protocol || !imp.state) throw new Error('not a benchbook batch');
       imp.id = imp.id && !db.batches[imp.id] ? imp.id : `i${Date.now().toString(36)}`;
-      db.batches[imp.id] = imp; persist(); location.hash = `#/b/${imp.id}/bench`;
+      const snap = imp.plateSnapshot; delete imp.plateSnapshot;
+      if (snap && imp.plate?.plateId) db.plates[imp.plate.plateId] ??= snap;
+      db.batches[imp.id] = ensureBatch(imp); persist(); location.hash = `#/b/${imp.id}/bench`;
     } catch (err) { alert(`Could not import: ${err.message}`); }
   }
 });
@@ -325,10 +316,12 @@ $app.addEventListener('submit', async e => {
   e.preventDefault();
   const form = e.target;
   const data = Object.fromEntries(new FormData(form));
+  const ext = qcUI.submits[form.dataset.act];
+  if (ext) { const b = currentBatch(); if (b) { const r = await ext(form, data, b); persist(); if (r !== 'none') render(); } return; }
   if (form.dataset.act === 'new-batch') {
     const protocol = await loadProtocol(data.protocol);
     const b = newBatch(protocol, { name: data.name.trim(), n: Number(data.n), overagePct: Number(data.overage) });
-    db.batches[b.id] = b; persist(); location.hash = `#/b/${b.id}/bench`;
+    db.batches[b.id] = ensureBatch(b); persist(); location.hash = `#/b/${b.id}/bench`;
   } else if (form.dataset.act === 'note-add') {
     const b = currentBatch();
     stateOf(b, form.dataset.key).notes.push({ t: new Date().toISOString(), tag: data.tag, text: data.text.trim() });

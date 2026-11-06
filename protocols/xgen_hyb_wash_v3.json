@@ -1,0 +1,139 @@
+{
+  "id": "xgen_hyb_wash_v3",
+  "name": "IDT xGen Hybridization and Wash v3 (multiplexed capture)",
+  "version": "1",
+  "default_overage_pct": 10,
+  "unit_label": "hybridizations",
+  "description": "Hybrid capture of pooled libraries. Count hybridizations (pools), not libraries. Volumes follow the lab workbook; check against the current kit insert before use.",
+  "sections": [
+    {
+      "title": "1. Pool, block and dry down",
+      "steps": [
+        {
+          "type": "mix",
+          "title": "Blocker mix",
+          "input": { "name": "Pooled libraries", "note": "about 1 ug per hyb, volume from QC" },
+          "components": [
+            { "name": "Human Cot DNA", "vol": 5 },
+            { "name": "xGen Universal Blockers", "vol": 2 }
+          ],
+          "note": "Lab practice: add blockers individually if the master mix is awkward to pipette."
+        },
+        {
+          "type": "step",
+          "text": "Dry down to 0 uL at 60 C.",
+          "note": "Open question from batch 2: is a long dry-down (2 x 45 min) damaging?"
+        }
+      ]
+    },
+    {
+      "title": "2. Hybridize",
+      "steps": [
+        {
+          "type": "mix",
+          "title": "Hybridization mix",
+          "components": [
+            { "name": "xGen Hybridization Buffer (1X)", "vol": 14 },
+            { "name": "xGen Hybridization Panel", "vol": 4 }
+          ]
+        },
+        { "type": "step", "text": "Resuspend the dried libraries in the hybridization mix and incubate 5 min at room temperature.", "timer_min": 5 },
+        {
+          "type": "thermocycle",
+          "title": "Denature and hybridize",
+          "program": [
+            { "name": "Denaturation", "temp_c": 95, "duration_s": 300 },
+            { "name": "Block & hybridize (about 17 h, overnight)", "temp_c": 70, "duration_s": null }
+          ],
+          "note": "Record the time the plate goes in; this is a 16-18 h incubation."
+        }
+      ]
+    },
+    {
+      "title": "3. Prepare beads and wash buffers",
+      "steps": [
+        {
+          "type": "mix",
+          "title": "1X Bead Wash Buffer",
+          "components": [
+            { "name": "xGen 2X Bead Wash Buffer", "vol": 159 },
+            { "name": "Nuclease-free water", "vol": 159 }
+          ],
+          "dispense": false
+        },
+        { "type": "step", "text": "Aliquot Dynabeads M-270 Streptavidin.", "per_rxn_vol": 50 },
+        { "type": "step", "text": "Wash the beads 3 times: add 2 x bead volume of 1X Bead Wash Buffer, mix, spin, remove supernatant.", "per_rxn_vol": 100, "per_label": "per wash" },
+        { "type": "step", "text": "Resuspend in 1X Bead Wash Buffer, mix, spin, then dispense 18 uL of washed beads to each hyb at room temperature.", "per_rxn_vol": 18 }
+      ]
+    },
+    {
+      "title": "4. Capture and washes",
+      "steps": [
+        { "type": "step", "text": "Bind: 1200 rpm, 23 C, 30 min.", "timer_min": 30 },
+        { "type": "step", "text": "Spin, place on magnet, remove eluate. Add stringent wash buffer, mix, spin.", "per_rxn_vol": 50 },
+        {
+          "type": "thermocycle",
+          "title": "Stringent wash incubation",
+          "lid_c": 105,
+          "program": [{ "name": "Stringent wash", "temp_c": 54, "duration_s": 1200 }]
+        },
+        { "type": "step", "text": "Spin, place on magnet, remove eluate. Add 1X Wash Buffer 1, mix, spin.", "per_rxn_vol": 150 },
+        { "type": "step", "text": "Place on magnet, remove eluate. Add 1X Wash Buffer 2, mix, spin.", "per_rxn_vol": 150 },
+        {
+          "type": "thermocycle",
+          "title": "Wash buffer 2 incubation",
+          "lid_c": 105,
+          "program": [{ "name": "Wash 2", "temp_c": 60, "duration_s": 300 }]
+        },
+        { "type": "step", "text": "Spin, place on magnet, remove eluate. Add water, mix, spin.", "per_rxn_vol": 20 }
+      ]
+    },
+    {
+      "title": "5. Post-capture PCR and cleanup",
+      "steps": [
+        {
+          "type": "mix",
+          "title": "Post-capture PCR mix",
+          "components": [
+            { "name": "xGen HiFi PCR Mix (2X)", "vol": 25 },
+            { "name": "xGen Library Amplification Primer Mix (20 uM)", "vol": 1.25 },
+            { "name": "Nuclease-free water", "vol": 3.75 }
+          ],
+          "note": "Dispense onto the beads. Seal the plate well: an open lid during PCR evaporated a reaction in batch 1."
+        },
+        {
+          "type": "thermocycle",
+          "title": "Post-capture PCR",
+          "program": [
+            { "name": "Initial denaturation", "temp_c": 98, "duration_s": 45 },
+            {
+              "cycles": 16,
+              "steps": [
+                { "name": "Denaturation", "temp_c": 98, "duration_s": 15 },
+                { "name": "Annealing", "temp_c": 60, "duration_s": 30 },
+                { "name": "Extension", "temp_c": 72, "duration_s": 30 }
+              ]
+            },
+            { "name": "Final extension", "temp_c": 72, "duration_s": 60 },
+            { "name": "Hold", "temp_c": 4, "duration_s": null }
+          ]
+        },
+        {
+          "type": "cleanup",
+          "title": "AMPure XP cleanup",
+          "sample": "PCR product",
+          "sample_vol": 50,
+          "bead": "AMPure XP beads",
+          "bead_vol": 60,
+          "bind_min": 15,
+          "wash": "200 uL 80% EtOH, 30 s, twice",
+          "dry_min": 5,
+          "elute_vol": 21,
+          "elute_min": 15,
+          "transfer_vol": 20,
+          "note": "Label tubes before transferring: a pooling mix-up happened here in batch 2."
+        }
+      ]
+    }
+  ]
+}

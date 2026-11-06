@@ -1,0 +1,403 @@
+{
+ "id": "example",
+ "name": "Example batch (synthetic)",
+ "n": 24,
+ "overagePct": 5,
+ "created": "2026-10-12T09:00:00.000Z",
+ "protocol": {
+  "id": "kapa_rna_hyperprep",
+  "name": "KAPA RNA HyperPrep (cfRNA, no fragmentation)",
+  "version": "1",
+  "default_overage_pct": 10,
+  "unit_label": "reactions",
+  "description": "Stranded RNA library prep with UDI adapters. Volumes follow the lab workbook, not the vendor manual; check against the current kit insert before use.",
+  "sections": [
+   {
+    "title": "1. First strand synthesis",
+    "steps": [
+     {
+      "type": "mix",
+      "title": "First strand master mix",
+      "input": {
+       "name": "Purified RNA",
+       "vol": 10
+      },
+      "components": [
+       {
+        "name": "Fragment, Prime and Elute Buffer (2X)",
+        "vol": 10
+       },
+       {
+        "name": "1st strand synthesis buffer",
+        "vol": 9.166666
+       },
+       {
+        "name": "KAPA Script",
+        "vol": 0.833333
+       }
+      ],
+      "note": "Pipette 10-20x to resuspend the RNA pellet."
+     },
+     {
+      "type": "thermocycle",
+      "title": "First strand program",
+      "program": [
+       {
+        "name": "Primer annealing",
+        "temp_c": 25,
+        "duration_s": 600
+       },
+       {
+        "name": "1st strand synthesis",
+        "temp_c": 42,
+        "duration_s": 1800
+       },
+       {
+        "name": "Enzyme inactivation",
+        "temp_c": 70,
+        "duration_s": 900
+       },
+       {
+        "name": "Hold",
+        "temp_c": 4,
+        "duration_s": null
+       }
+      ],
+      "note": "Place tubes in a cold block after each reaction."
+     }
+    ]
+   },
+   {
+    "title": "2. Second strand synthesis and A-tailing",
+    "steps": [
+     {
+      "type": "mix",
+      "title": "Second strand master mix",
+      "input": {
+       "name": "1st strand synthesis product",
+       "vol": 30
+      },
+      "components": [
+       {
+        "name": "2nd strand marking buffer",
+        "vol": 28.2
+       },
+       {
+        "name": "2nd strand synthesis & A-tailing enzyme mix",
+        "vol": 1.82
+       }
+      ]
+     },
+     {
+      "type": "thermocycle",
+      "title": "Second strand program",
+      "program": [
+       {
+        "name": "2nd strand synthesis",
+        "temp_c": 16,
+        "duration_s": 1800
+       },
+       {
+        "name": "A-tailing",
+        "temp_c": 62,
+        "duration_s": 600
+       },
+       {
+        "name": "Hold",
+        "temp_c": 4,
+        "duration_s": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "3. Adapter ligation",
+    "steps": [
+     {
+      "type": "mix",
+      "title": "Ligation master mix",
+      "input": {
+       "name": "2nd strand synthesis product",
+       "vol": 60
+      },
+      "components": [
+       {
+        "name": "Ligation buffer",
+        "vol": 36.36
+       },
+       {
+        "name": "DNA ligase",
+        "vol": 9.1
+       }
+      ],
+      "dispense_vol": 45,
+      "add": [
+       {
+        "name": "Adapter (15 uM)",
+        "vol": 5
+       }
+      ],
+      "note": "Dispense is rounded to 45 uL (the components sum to 45.46). Add the adapter to each reaction individually."
+     },
+     {
+      "type": "thermocycle",
+      "title": "Ligation program",
+      "program": [
+       {
+        "name": "Ligate",
+        "temp_c": 20,
+        "duration_s": 3000
+       },
+       {
+        "name": "Hold",
+        "temp_c": 4,
+        "duration_s": null
+       }
+      ],
+      "note": "Ligation can be as short as 15 min."
+     }
+    ]
+   },
+   {
+    "title": "4. USER excision",
+    "steps": [
+     {
+      "type": "mix",
+      "title": "USER digest",
+      "input": {
+       "name": "Ligation product",
+       "vol": 110
+      },
+      "components": [],
+      "add": [
+       {
+        "name": "USER",
+        "vol": 4
+       }
+      ],
+      "note": "Unusually high yields later usually mean USER was NOT forgotten; low-yield outliers may be the tube you skipped."
+     },
+     {
+      "type": "thermocycle",
+      "title": "USER program",
+      "program": [
+       {
+        "name": "Excise",
+        "temp_c": 37,
+        "duration_s": 1200
+       },
+       {
+        "name": "Hold",
+        "temp_c": 4,
+        "duration_s": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "title": "5. Cleanup 1",
+    "steps": [
+     {
+      "type": "cleanup",
+      "title": "KAPA Pure Beads cleanup",
+      "sample": "USER product",
+      "sample_vol": 114,
+      "bead": "KAPA Pure Beads",
+      "bead_vol": 70,
+      "bind_min": 30,
+      "wash": "200 uL 80% EtOH, 30 s, twice",
+      "dry_min": 3,
+      "elute_vol": 21,
+      "elute_min": 15,
+      "transfer_vol": 20,
+      "note": "Can elute overnight at 4 C if needed."
+     }
+    ]
+   },
+   {
+    "title": "6. Library amplification (UDI)",
+    "steps": [
+     {
+      "type": "mix",
+      "title": "Amplification master mix",
+      "input": {
+       "name": "Truncated library",
+       "vol": 20
+      },
+      "components": [
+       {
+        "name": "Library amplification master mix (2X)",
+        "vol": 30
+       }
+      ],
+      "add": [
+       {
+        "name": "Unique dual indexed indexing primers",
+        "vol": 10
+       }
+      ],
+      "note": "Master-mixed in recent batches. Add the indexing primers per well; record the plate wells used."
+     },
+     {
+      "type": "thermocycle",
+      "title": "Indexing PCR",
+      "program": [
+       {
+        "name": "Initial denaturation",
+        "temp_c": 98,
+        "duration_s": 45
+       },
+       {
+        "cycles": 16,
+        "steps": [
+         {
+          "name": "Denaturation",
+          "temp_c": 98,
+          "duration_s": 15
+         },
+         {
+          "name": "Annealing",
+          "temp_c": 60,
+          "duration_s": 30
+         },
+         {
+          "name": "Extension",
+          "temp_c": 72,
+          "duration_s": 30
+         }
+        ]
+       },
+       {
+        "name": "Final extension",
+        "temp_c": 72,
+        "duration_s": 60
+       },
+       {
+        "name": "Hold",
+        "temp_c": 4,
+        "duration_s": null
+       }
+      ],
+      "note": "Idea from batches 4-6: try on-bead indexing PCR."
+     }
+    ]
+   },
+   {
+    "title": "7. Cleanup 2",
+    "steps": [
+     {
+      "type": "cleanup",
+      "title": "KAPA Pure Beads cleanup",
+      "sample": "PCR product",
+      "sample_vol": 60,
+      "bead": "KAPA Pure Beads",
+      "bead_vol": 60,
+      "bind_min": 30,
+      "wash": "200 uL 80% EtOH, 30 s, twice",
+      "dry_min": 5,
+      "elute_vol": 21,
+      "elute_min": 30,
+      "transfer_vol": 20,
+      "note": "Bioanalyze a few libraries to check for adapter dimers."
+     }
+    ]
+   }
+  ]
+ },
+ "info": {
+  "prep": "2026-10-12",
+  "hyb": "2026-10-19",
+  "cap": "2026-10-20",
+  "seq": "2026-10-22",
+  "thermocycler": "thermocycler A",
+  "cohyb": "another batch"
+ },
+ "state": {
+  "0.0": {
+   "done": "2026-10-12T09:10:00.000Z",
+   "timer": null,
+   "notes": [
+    {
+     "t": "2026-10-12T09:15:00.000Z",
+     "tag": "observation",
+     "text": "RNA pellets resuspended in about 15 pipetting strokes."
+    }
+   ]
+  },
+  "0.1": {
+   "done": "2026-10-12T09:35:00.000Z",
+   "timer": null,
+   "notes": []
+  },
+  "1.0": {
+   "done": "2026-10-12T10:00:00.000Z",
+   "timer": null,
+   "notes": []
+  },
+  "1.1": {
+   "done": "2026-10-12T10:25:00.000Z",
+   "timer": null,
+   "notes": []
+  },
+  "2.0": {
+   "done": "2026-10-12T10:50:00.000Z",
+   "timer": null,
+   "notes": [
+    {
+     "t": "2026-10-12T11:50:00.000Z",
+     "tag": "idea",
+     "text": "Master-mix the ligation components and add adapter per well; saved about 10 minutes."
+    }
+   ]
+  },
+  "2.1": {
+   "done": "2026-10-12T11:15:00.000Z",
+   "timer": null,
+   "notes": [
+    {
+     "t": "2026-10-12T12:30:00.000Z",
+     "tag": "deviation",
+     "text": "Ligation ran 60 min instead of 50 (interrupted)."
+    }
+   ]
+  },
+  "3.0": {
+   "done": "2026-10-12T11:40:00.000Z",
+   "timer": null,
+   "notes": []
+  },
+  "3.1": {
+   "done": "2026-10-12T12:05:00.000Z",
+   "timer": null,
+   "notes": []
+  },
+  "4.0.0": {
+   "done": "2026-10-12T12:30:00.000Z",
+   "timer": null,
+   "notes": []
+  },
+  "4.0.1": {
+   "done": "2026-10-12T12:55:00.000Z",
+   "timer": null,
+   "notes": []
+  },
+  "4.0.2": {
+   "done": "2026-10-12T13:20:00.000Z",
+   "timer": null,
+   "notes": []
+  },
+  "4.0.3": {
+   "done": null,
+   "timer": null,
+   "notes": [
+    {
+     "t": "2026-10-12T14:40:00.000Z",
+     "tag": "observation",
+     "text": "Cleanup 1 elution left overnight at 4 C."
+    }
+   ]
+  }
+ }
+}

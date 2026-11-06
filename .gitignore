@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+# your real batches: export them here, they stay out of git
+batches/
+*.local.json

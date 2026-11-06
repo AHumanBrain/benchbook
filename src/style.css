@@ -124,3 +124,26 @@ td.flag { color: var(--warn); font-weight: 650; background: var(--warn-soft); }
 .lg i.sw { border: 1.5px solid var(--line); background: var(--card); }
 .lg i.sw.flagged { border: 1.5px dashed var(--warn); }
 .lg i.sw.used { background: repeating-linear-gradient(45deg, transparent 0 3px, var(--line) 3px 5px); }
+
+/* backup chip + nag */
+.chip-backup { font-size: 0.82rem; padding: 4px 10px; border-radius: 99px; text-decoration: none; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; align-self: center; }
+.chip-backup.ok { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.chip-backup.warn { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
+.chip-backup.bad { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
+#topnav { flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+a.card.nag { display: block; background: var(--warn-soft); border-color: transparent; color: var(--ink); text-decoration: none; }
+
+/* protocol editor */
+.pstep { border-left: 4px solid var(--accent); }
+.psection { background: transparent; }
+h4 { font-size: 0.85rem; margin: 14px 0 6px; }
+.plist { display: grid; gap: 6px; }
+.prow { display: grid; grid-template-columns: 1fr 6.5em auto; gap: 6px; align-items: center; }
+.prow.prow { grid-template-columns: 1.4fr 5.5em 9em auto; }
+.prow.component { grid-template-columns: 1fr 7em auto; }
+@media (max-width: 560px) { .prow.prow { grid-template-columns: 1fr 1fr; } .prow.prow input:first-child { grid-column: 1 / -1; } }
+.cyclebox { border: 1px dashed var(--accent); border-radius: 10px; padding: 8px; background: var(--accent-soft); display: grid; gap: 6px; }
+input.bad { outline: 2px solid var(--bad); }
+.savebar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--card); border-top: 1px solid var(--line); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.planmode .check, .planmode .bench-only { display: none; }
+.planmode .item { grid-template-columns: 1fr; }

@@ -144,3 +144,37 @@ test('plate map CSV has one line per sample', () => {
   assert.equal(csv[1], 'L1,plate 1,A1,1,50,1');
   assert.ok(csv[2].startsWith('"L,2"'));
 });
+
+// Real pre-capture readings (concentrations as measured; user name replaced), Sample ID column empty.
+const REAL_CONC = [229.0, 322.2, 112.8, 232.9, 205.9, 198.4, 128.9, 98.7, 262.2, 191.0, 298.8, 372.3, 485.6, 220.4, 229.3, 132.0, 465.4, 406.4, 287.7, 528.6, 506.7, 405.3, 169.1, 333.0];
+const BLANK_IDS = ['#\tSample ID\tUser name\tDate and Time\tNucleic Acid\tUnit\tA260 (Abs)\tA280 (Abs)\t260/280\t260/230\tSample Type\tFactor',
+  ...REAL_CONC.map((c, i) => `${i + 1}\t\tUser, Lab\t10/15/2026 10:27:20 AM\t${c.toFixed(1)}\tng/µl\t4.579\t2.460\t1.86\t2.10\tDNA\t50.00`)].join('\n');
+
+test('a NanoDrop export with an empty Sample ID column still parses', () => {
+  const { rows, warnings, format } = parseQC(BLANK_IDS);
+  assert.equal(format, 'nanodrop');
+  assert.equal(rows.length, 24);
+  assert.equal(rows[0].name, 'Sample 1');
+  assert.equal(rows[23].name, 'Sample 24');
+  assert.equal(rows[19].conc, 528.6);
+  assert.ok(warnings.some(w => w.includes('blank for 24')));
+  assert.equal(summarize(rows).flagged, 0);
+});
+
+test('pasted names replace blank ones, in row order', () => {
+  const names = REAL_CONC.map((_, i) => `L${i + 1}`);
+  const { rows, warnings } = parseQC(BLANK_IDS, { names });
+  assert.equal(rows[0].name, 'L1');
+  assert.equal(rows[23].name, 'L24');
+  assert.deepEqual(warnings, []);
+  assert.ok(parseQC(BLANK_IDS, { names: ['a', 'b'] }).warnings.some(w => w.includes('2 names for 24 rows')));
+});
+
+test('real concentrations pool without hitting the volume limit', () => {
+  const { rows } = parseQC(BLANK_IDS, { names: REAL_CONC.map((_, i) => `L${i + 1}`) });
+  const samples = rows.map((r, i) => ({ name: r.name, pool: Math.floor(i / 3) + 1 }));
+  const plan = poolPlan(samples, rows, { targetNg: 1000, availUl: 20 });
+  assert.equal(plan.length, 8);
+  assert.ok(plan.every(p => p.limitedBy === null && Math.round(p.totalNg) === 1000));
+  assert.ok(plan.every(p => p.totalUl < 20)); // 1 ug in well under 20 uL at these concentrations
+});

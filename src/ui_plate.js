@@ -110,7 +110,7 @@ export function render(b, header) {
   <div id="plate-issues" style="margin-top:10px">${issuesHtml(b)}</div>
   <h2>Pooling plan <span class="muted small" style="text-transform:none;letter-spacing:0">equal mass per library</span></h2><div id="pool-plan">${planHtml(b)}</div>
   ${p.samples.length ? `<h2>Samples</h2><div class="card"><div class="tablewrap"><table><thead><tr><th>Library</th><th>Well</th><th>Pool</th></tr></thead><tbody>${table}</tbody></table></div></div>
-  <p><button class="btn" data-act="plate-csv">Download plate map (CSV)</button> <span class="muted small">Index sequences are kit-specific and not included.</span></p>` : ''}`;
+  <p><button class="btn" data-act="plate-csv">Download plate map (CSV)</button></p>` : ''}`;
 }
 
 /* ---------- reading the form back into the batch (no re-render) ---------- */

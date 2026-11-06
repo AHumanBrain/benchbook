@@ -45,7 +45,7 @@ const findCol = (headers, tests) => {
 
 /** Parse pasted text. Returns { rows, warnings, format }.
  *  rows: [{ name, conc (ng/µL or null), rawConc, unit, nM, r280, r230, date }] */
-export function parseQC(text) {
+export function parseQC(text, { names = null } = {}) {
   const warnings = [];
   const lines = String(text ?? '').split(/\r?\n/).filter(l => l.trim());
   if (!lines.length) return { rows: [], warnings: ['nothing pasted'], format: null };
@@ -56,7 +56,7 @@ export function parseQC(text) {
   const headers = hasHeader ? table[0].map(h => h.toLowerCase().replace(MICRO, 'u').trim()) : [];
   const body = hasHeader ? table.slice(1) : table;
 
-  let ni = 0, ci = 1, ui = -1, i280 = -1, i230 = -1, idate = -1, format = 'simple';
+  let ni = 0, ci = 1, ui = -1, i280 = -1, i230 = -1, idate = -1, ihash = -1, format = 'simple';
   if (hasHeader) {
     ni = findCol(headers, [/^sample\s*(id|name)$/, /^(test\s*)?name$/, /^id$/, /sample/]);
     ci = findCol(headers, [/original sample conc\.?$/, /^nucleic acid$/, /^conc(entration)?\b/, /conc/]);
@@ -64,18 +64,24 @@ export function parseQC(text) {
     i280 = findCol(headers, [/260\s*\/\s*280/]);
     i230 = findCol(headers, [/260\s*\/\s*230/]);
     idate = findCol(headers, [/date/]);
+    ihash = findCol(headers, [/^#$/, /^no\.?$/, /^n°$/]);
     format = i280 >= 0 || i230 >= 0 ? 'nanodrop' : headers.some(h => /qubit|assay/.test(h)) ? 'qubit' : 'table';
     if (ni < 0) { warnings.push('no sample name column found; used the first column'); ni = 0; }
     if (ci < 0) { warnings.push('no concentration column found; used the second column'); ci = 1; }
   }
 
-  let assumedUnit = false, unknownUnits = new Set();
+  let assumedUnit = false, blank = 0;
+  const unknownUnits = new Set();
   const rows = [];
   for (const cells of body) {
-    const name = (cells[ni] ?? '').trim();
-    if (!name) continue;
+    let name = (cells[ni] ?? '').trim();
     const rawConc = cells[ci] ?? '';
     const v = num(rawConc, decimalComma);
+    if (!name) {
+      if (!Number.isFinite(v)) continue; // no name and no number: junk
+      name = `Sample ${(ihash >= 0 && cells[ihash]) || rows.length + 1}`;
+      blank++;
+    }
     const unitText = ui >= 0 ? (cells[ui] ?? '').trim() : '';
     const unit = normUnit(unitText);
     let conc = null, nM = null;
@@ -92,6 +98,12 @@ export function parseQC(text) {
       r230: Number.isFinite(r230) ? r230 : null,
       date: idate >= 0 ? cells[idate] ?? '' : '',
     });
+  }
+  if (names && names.length) {
+    if (names.length !== rows.length) warnings.push(`${names.length} names for ${rows.length} rows: extra rows keep their default names`);
+    rows.forEach((r, i) => { if (names[i]) r.name = names[i]; });
+  } else if (blank) {
+    warnings.push(`the Sample ID column was blank for ${blank} row(s): named "Sample 1", "Sample 2"… from the # column. Paste real names in the names box to replace them.`);
   }
   if (assumedUnit) warnings.push('no unit column: concentrations assumed to be ng/µL');
   if (unknownUnits.size) warnings.push(`unrecognised unit(s) ${[...unknownUnits].join(', ')}: those rows have no ng/µL value`);

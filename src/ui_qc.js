@@ -2,7 +2,7 @@ import { parseQC, flagRow, summarize, DEFAULT_THRESHOLDS } from './qc.js';
 import { fmt } from './calc.js';
 import { esc, clock, db, persist, newId } from './shared.js';
 
-const LABELS = ['Pre-prep RNA', 'Post-prep libraries', 'Post-capture libraries', 'Pooled libraries'];
+const LABELS = ['RNA input', 'Pre-capture libraries', 'Post-capture libraries', 'Pooled for hyb'];
 
 function setCard(set, thr) {
   const sum = summarize(set.rows, thr);
@@ -37,10 +37,12 @@ export function render(b, header) {
   <div class="card"><h3>Add measurements</h3>
     <form data-act="qc-add">
       <div class="grid"><label class="field">What was measured
-        <input type="text" name="label" list="qc-labels" value="Post-prep libraries" required></label>
+        <input type="text" name="label" list="qc-labels" value="Pre-capture libraries" required></label>
         <datalist id="qc-labels">${LABELS.map(l => `<option value="${l}">`).join('')}</datalist></div>
       <label class="field" style="margin-top:10px">Paste the table
         <textarea name="text" rows="6" placeholder="Paste a NanoDrop export copied from a spreadsheet (tab-separated, with a header row), a Qubit CSV, or two columns: sample name and concentration." required></textarea></label>
+      <label class="field" style="margin-top:10px">Sample names (optional): one per line, in the same order as the rows
+        <textarea name="names" rows="3" placeholder="Use this when the Sample ID column is blank. Leave empty to keep the names in the table."></textarea></label>
       <div class="row" style="margin-top:10px"><button class="btn primary">Add</button>
         <span class="muted small">Reads sample name, concentration, unit, 260/280 and 260/230 when they are there.</span></div>
     </form></div>
@@ -69,7 +71,8 @@ export const changes = {
 
 export const submits = {
   'qc-add': (form, data, b) => {
-    const { rows, warnings, format } = parseQC(data.text);
+    const names = (data.names || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+    const { rows, warnings, format } = parseQC(data.text, { names });
     if (!rows.length) { alert(`Nothing usable found: ${warnings.join('; ') || 'no rows'}.`); return 'none'; }
     b.qc.sets.push({ id: newId('q'), label: data.label.trim() || 'Measurements', t: new Date().toISOString(), format, warnings, rows });
   },

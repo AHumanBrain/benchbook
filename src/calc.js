@@ -48,8 +48,8 @@ export function expandCleanup(s) {
   return [
     { type: 'step', text: `${s.title}: add ${fmt(s.bead_vol)} µL ${s.bead} to ${fmt(s.sample_vol)} µL ${s.sample}. Mix and bind.`, per_rxn_vol: s.bead_vol, timer_min: s.bind_min, note: s.note },
     { type: 'step', text: `Magnet, discard supernatant. Wash: ${s.wash}.` },
-    { type: 'step', text: 'Air-dry the beads.', timer_min: s.dry_min },
-    { type: 'step', text: `Elute in ${fmt(s.elute_vol)} µL Tris (5 mM) or water.`, per_rxn_vol: s.elute_vol, timer_min: s.elute_min },
+    { type: 'step', text: s.dry_min > 0 ? 'Air-dry the beads.' : 'Spin, place on the magnet and remove the residual ethanol. No drying.', timer_min: s.dry_min },
+    { type: 'step', text: `Elute in ${fmt(s.elute_vol)} µL ${s.elute_buffer || 'Tris (5 mM) or water'}.`, per_rxn_vol: s.elute_vol, timer_min: s.elute_min },
     { type: 'step', text: `Transfer ${fmt(s.transfer_vol)} µL eluate to a fresh tube.`, per_rxn_vol: s.transfer_vol },
   ];
 }

@@ -9,6 +9,7 @@ import * as backupUI from './ui_backup.js';
 import * as compareUI from './ui_compare.js';
 import * as overviewUI from './ui_overview.js';
 import * as folder from './folder.js';
+import { applySeed } from './seed.js';
 
 const $app = document.getElementById('app');
 const $nav = document.getElementById('topnav');
@@ -103,10 +104,10 @@ async function viewHome() {
     ? batches.map(b => {
       const p = progress(b, flattenProtocol(b.protocol));
       return `<div class="card"><div><a class="title" href="#/b/${b.id}/bench">${esc(b.name)}</a>
-        <div class="muted small">${esc(b.protocol.name)} · ${b.n} ${esc(b.protocol.unit_label)} · ${p.done}/${p.total} steps · ${clock(b.created)}</div></div>
+        <div class="muted small">${esc(b.protocol.name)}${b.protocol.revision ? ` rev ${b.protocol.revision}` : ''} · ${b.n} ${esc(b.protocol.unit_label)} · ${p.done}/${p.total} steps · ${clock(b.created)}${b.seed ? ' · <span class="chip">from workbook</span>' : ''}</div></div>
         <a class="btn small" href="#/b/${b.id}/bench">Open</a></div>`;
     }).join('')
-    : '<div class="empty">No batches yet. Start one below, or load the example to look around.</div>';
+    : '<div class="empty">No batches yet. Start one below.</div>';
   const st = backupUI.status();
   const nag = st.level === 'warn' || st.level === 'bad' ? `<a class="card nag" href="#/backup"><b>${esc(st.text)}.</b> Your batches exist only in this browser. <u>Set up a backup</u></a>` : '';
   return `${nag}<h1>Your batches</h1><div class="batchlist">${list}</div>
@@ -118,7 +119,7 @@ async function viewHome() {
     <label class="field">Master-mix overage %<input type="number" name="overage" min="0" max="50" value="${protos[0]?.default_overage_pct ?? 10}" required></label>
   </div><div class="row" style="margin-top:12px"><button class="btn primary">Start batch</button></div></form>
   <h2>Other</h2>
-  <div class="row"><button class="btn" data-act="load-example">Load example batch</button>
+  <div class="row"><button class="btn" data-act="restore-seed">Restore workbook batches</button>
     <label class="btn">Import batch JSON<input type="file" accept="application/json" data-act="import" hidden></label></div>
   <p class="muted small" style="margin-top:18px">Everything stays in this browser (localStorage). Nothing is uploaded anywhere. <a href="#/backup">Back it up</a>.</p>`;
 }
@@ -204,12 +205,12 @@ $app.addEventListener('click', async e => {
     const text = collectNotes(b, flattenProtocol(b.protocol)).map(n => `[${n.tag}] ${n.step}: ${n.text}`).join('\n');
     try { await navigator.clipboard.writeText(text); el.textContent = 'Copied'; } catch { download('notes.txt', text, 'text/plain'); }
     return;
-  } else if (act === 'load-example') {
-    const ex = await (await fetch('examples/example_batch.json')).json();
-    ex.id = `ex${Date.now().toString(36)}`; ex.created = new Date().toISOString();
-    const snap = ex.plateSnapshot; delete ex.plateSnapshot;
-    if (snap) { const pid = `pex${Date.now().toString(36)}`; db.plates[pid] = { ...snap, id: pid }; ex.plate.plateId = pid; }
-    db.batches[ex.id] = ensureBatch(ex); persist(); location.hash = `#/b/${ex.id}/bench`; return;
+  } else if (act === 'restore-seed') {
+    const seed = await (await fetch('data/seed.json')).json();
+    const n = applySeed(db, seed, { force: true, ensure: ensureBatch });
+    persist();
+    alert(n ? `Restored ${n} batch(es) from the lab workbook data.` : 'Every batch from the lab workbook is already here.');
+    render(); return;
   } else return;
   persist(); render();
 });
@@ -270,4 +271,10 @@ $app.addEventListener('submit', async e => {
 // Small hook for tests and debugging.
 window.benchbook = { get db() { return db; }, persist };
 folder.init().then(() => updateNav());
-render();
+(async () => {
+  try {
+    const res = await fetch('data/seed.json');
+    if (res.ok && applySeed(db, await res.json(), { ensure: ensureBatch })) persist();
+  } catch { /* offline or no seed file: the app works without it */ }
+  render();
+})();

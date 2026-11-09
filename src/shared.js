@@ -35,7 +35,13 @@ export function ensureBatch(b) {
 Object.values(db.batches).forEach(ensureBatch);
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export const clock = iso => (iso ? new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+/** Dates only ("2026-08-10", from imported history) show as a date; full timestamps show the time too. */
+export const clock = iso => {
+  if (!iso) return '';
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (day) return new Date(+day[1], +day[2] - 1, +day[3]).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
 export const newId = prefix => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
 export function download(name, text, type = 'application/json') {

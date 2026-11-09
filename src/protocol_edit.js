@@ -109,6 +109,7 @@ export const FIELDS = {
     { path: 'wash', label: 'Wash', kind: 'text' },
     { path: 'dry_min', label: 'Dry (min)', kind: 'numreq' },
     { path: 'elute_vol', label: 'Elute in µL', kind: 'numreq' },
+    { path: 'elute_buffer', label: 'Elution buffer (optional)', kind: 'text', ph: 'default: Tris (5 mM) or water' },
     { path: 'elute_min', label: 'Elute (min)', kind: 'numreq' },
     { path: 'transfer_vol', label: 'Transfer µL', kind: 'numreq' },
     { path: 'note', label: 'Note', kind: 'text' },

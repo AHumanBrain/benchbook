@@ -1,6 +1,11 @@
 // Backup file format, merging and the safety check for the auto-saved folder. Pure: no DOM, no storage.
 
+import { isPristineSeed } from './seed.js';
+
 export const FORMAT = 'benchbook-backup';
+
+/** The backup's version of a batch should replace ours: we have none, or ours is an untouched import and theirs is not. */
+const backupWins = (local, fromFile) => !local || (isPristineSeed(local) && !isPristineSeed(fromFile));
 
 export function buildBackup(db, now = new Date()) {
   return {
@@ -36,7 +41,7 @@ export const summary = b => ({ batches: Object.keys(b.batches || {}).length, pro
 /** What merging would do, without doing it: ids that are new, and ids that exist in both. */
 export function mergePlan(db, backup) {
   const plan = { newBatches: [], clashBatches: [], newProtocols: [], clashProtocols: [] };
-  for (const id of Object.keys(backup.batches)) (db.batches[id] ? plan.clashBatches : plan.newBatches).push(id);
+  for (const [id, b] of Object.entries(backup.batches)) (backupWins(db.batches[id], b) ? plan.newBatches : plan.clashBatches).push(id);
   for (const id of Object.keys(backup.protocols)) (db.protocols[id] ? plan.clashProtocols : plan.newProtocols).push(id);
   return plan;
 }
@@ -45,10 +50,10 @@ export function mergePlan(db, backup) {
  *  Plates are merged flag by flag (this browser's reason wins). Returns counts. */
 export function mergeBackup(db, backup, { overwrite = false } = {}) {
   const out = { added: 0, overwritten: 0, skipped: 0 };
-  const put = (target, id, value) => {
-    if (!target[id]) { target[id] = value; out.added++; } else if (overwrite) { target[id] = value; out.overwritten++; } else out.skipped++;
+  const put = (target, id, value, wins = !target[id]) => {
+    if (wins) { target[id] = value; out.added++; } else if (overwrite) { target[id] = value; out.overwritten++; } else out.skipped++;
   };
-  for (const [id, v] of Object.entries(backup.batches)) put(db.batches, id, v);
+  for (const [id, v] of Object.entries(backup.batches)) put(db.batches, id, v, backupWins(db.batches[id], v));
   for (const [id, v] of Object.entries(backup.protocols)) put(db.protocols, id, v);
   for (const [id, plate] of Object.entries(backup.plates)) {
     if (!db.plates[id]) db.plates[id] = plate;
@@ -65,7 +70,7 @@ export function canAutosave(fileBackup, db) {
   if (!fileBackup) return { ok: true, missing: [] };
   const deleted = db.settings?.deleted || {};
   const missing = [
-    ...Object.keys(fileBackup.batches || {}).filter(id => !db.batches[id] && !deleted[id]),
+    ...Object.entries(fileBackup.batches || {}).filter(([id, b]) => backupWins(db.batches[id], b) && !deleted[id]).map(([id]) => id),
     ...Object.keys(fileBackup.protocols || {}).filter(id => !db.protocols[id] && !deleted[id]),
   ];
   return { ok: missing.length === 0, missing };

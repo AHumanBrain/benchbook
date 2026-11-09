@@ -5,7 +5,7 @@ import { durationText } from './protocol_edit.js';
 const FIELD_LABEL = {
   note: 'note', dispense_vol: 'dispense volume', dispense: 'dispense', lid_c: 'lid temperature', timer_min: 'timer', per_rxn_vol: 'µL per reaction',
   per_label: 'total label', sample: 'sample', sample_vol: 'sample volume', bead: 'beads', bead_vol: 'bead volume', bind_min: 'bind time',
-  wash: 'wash', dry_min: 'dry time', elute_vol: 'elution volume', elute_min: 'elution time', transfer_vol: 'transfer volume',
+  wash: 'wash', elute_buffer: 'elution buffer', dry_min: 'dry time', elute_vol: 'elution volume', elute_min: 'elution time', transfer_vol: 'transfer volume',
 };
 const UNIT = { dispense_vol: ' µL', lid_c: ' °C', timer_min: ' min', per_rxn_vol: ' µL', sample_vol: ' µL', bead_vol: ' µL', bind_min: ' min', dry_min: ' min', elute_vol: ' µL', elute_min: ' min', transfer_vol: ' µL' };
 

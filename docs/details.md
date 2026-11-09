@@ -66,6 +66,16 @@ A protocol is a list of sections, each a list of steps. Step types:
 
 Most people never need to touch these files: copy a protocol on the **Protocols** page and edit it in the browser. Your protocols are stored in the browser (and included in backups); **Export** gives you a JSON file you can commit here. To ship one with the repo, drop the file in `protocols/` and add its id to `protocols/index.json`. A batch stores a snapshot of the protocol it was started from, so editing a protocol never changes past batches.
 
+## Developing
+
+After changing anything in `src/`, `data/` or `protocols/`, run:
+
+```bash
+node scripts/stamp.mjs
+```
+
+It adds a version to each script's URL in `index.html` and writes `build.json`. Without it, browsers may keep running a cached copy of the old code for up to ten minutes (that is how long GitHub Pages lets them). With it, a normal reload picks up the change, and a page left open shows a "newer version is available" message with a Reload button. A test fails if the stamp is out of date, so CI catches a forgotten run.
+
 ## Tests
 
 ```bash

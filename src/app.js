@@ -19,11 +19,11 @@ const $nav = document.getElementById('topnav');
 /* ---------- helpers ---------- */
 const protocolCache = {};
 async function loadBuiltin(id) {
-  if (!protocolCache[id]) protocolCache[id] = await (await fetch(`protocols/${id}.json`)).json();
+  if (!protocolCache[id]) protocolCache[id] = await (await fetch(`protocols/${id}.json`, { cache: 'no-cache' })).json();
   return protocolCache[id];
 }
 async function builtins() {
-  const ids = JSON.parse(await (await fetch('protocols/index.json')).text());
+  const ids = JSON.parse(await (await fetch('protocols/index.json', { cache: 'no-cache' })).text());
   return Promise.all(ids.map(loadBuiltin));
 }
 async function loadProtocol(id) {
@@ -117,8 +117,26 @@ async function viewHome() {
   <h2>Other</h2>
   <div class="row"><button class="btn" data-act="restore-seed">Restore workbook batches</button>
     <label class="btn">Import batch JSON<input type="file" accept="application/json" data-act="import" hidden></label></div>
-  <p class="muted small" style="margin-top:18px">Everything stays in this browser (localStorage). Nothing is uploaded anywhere. <a href="#/backup">Back it up</a>.</p>`;
+  <p class="muted small" style="margin-top:18px">Everything stays in this browser (localStorage). Nothing is uploaded anywhere. <a href="#/backup">Back it up</a>. <span class="muted">Build ${esc(window.BUILD || 'dev')}.</span></p>`;
 }
+
+/* ---------- newer version available? ---------- */
+// GitHub Pages lets browsers reuse files for ten minutes. index.html is stamped with a build id (scripts/stamp.mjs); if build.json
+// says a different build is live, offer a reload instead of leaving the person on stale code.
+let warnedStale = false;
+async function checkForUpdate() {
+  try {
+    const res = await fetch('build.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    const { build } = await res.json();
+    if (window.BUILD && build && build !== window.BUILD && !warnedStale) {
+      warnedStale = true;
+      toast('A newer version of benchbook is available.', { action: { label: 'Reload', run: () => location.reload() }, ms: 3600000 });
+    }
+  } catch { /* offline: nothing to check */ }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+setInterval(checkForUpdate, 300000);
 
 /* ---------- theme ---------- */
 const THEME_KEY = 'benchbook.theme';
@@ -222,7 +240,7 @@ $app.addEventListener('click', async e => {
     try { await navigator.clipboard.writeText(text); el.textContent = 'Copied'; } catch { download('notes.txt', text, 'text/plain'); }
     return;
   } else if (act === 'restore-seed') {
-    const seed = await (await fetch('data/seed.json')).json();
+    const seed = await (await fetch('data/seed.json', { cache: 'no-cache' })).json();
     const n = applySeed(db, seed, { force: true, ensure: ensureBatch });
     persist();
     toast(n ? `Restored ${n} batch(es) from the lab workbook data.` : 'Every batch from the lab workbook is already here.');
@@ -293,8 +311,9 @@ window.benchbook = { get db() { return db; }, persist };
 folder.init().then(() => updateNav());
 (async () => {
   try {
-    const res = await fetch('data/seed.json');
+    const res = await fetch('data/seed.json', { cache: 'no-cache' });
     if (res.ok && applySeed(db, await res.json(), { ensure: ensureBatch })) persist();
   } catch { /* offline or no seed file: the app works without it */ }
   render();
+  checkForUpdate();
 })();

@@ -13,8 +13,9 @@ function container() {
   return host;
 }
 
-/** toast('Deleted "Batch 1".', { undo: () => restore() }). kind: info | warn | error. Returns a function that closes it. */
-export function toast(message, { kind = 'info', undo = null, ms } = {}) {
+/** toast('Deleted "Batch 1".', { undo: () => restore() }). kind: info | warn | error. `action: { label, run }` adds any other
+ *  button. Returns a function that closes it. */
+export function toast(message, { kind = 'info', undo = null, action = null, ms } = {}) {
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   const text = document.createElement('span');
@@ -33,6 +34,7 @@ export function toast(message, { kind = 'info', undo = null, ms } = {}) {
     el.append(b);
   };
   if (undo) button('Undo', 'undo', () => { close(); undo(); });
+  if (action) button(action.label, 'undo', () => { close(); action.run(); });
   button('×', 'x', close, 'Dismiss');
   const box = container();
   box.append(el);

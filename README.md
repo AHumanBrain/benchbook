@@ -22,13 +22,15 @@ A bench-side notebook for library prep and hybrid capture: master-mix maths, ste
 
 ![A step on the bench: master mix table, tick box and note](docs/bench.png)
 
-**QC and plate.** Paste NanoDrop or Qubit readings and low or odd values are flagged. Lay libraries on a 96-well UDI plate (it skips wells that were used or flagged) and get the µL of each library for an equal-mass hyb pool.
+**QC and plate.** Paste NanoDrop readings (Qubit and plain two-column tables work too) and low or odd values are flagged. Lay libraries on a 96-well UDI plate (it skips wells that were used or flagged) and get the µL of each library for an equal-mass hyb pool.
 
 ![UDI plate with pools, flagged wells and wells used by other batches](docs/plate.png)
 
-**Graphs.** One bar per library within a batch, and every library from every batch on the Overview.
+**Graphs.** One dot for every library, grouped by hyb pool. The colours are the same on the plate, in the pooling plan, on each batch's graph (a hyb's reading *n* is pool *n*) and on the Overview, and a ring marks a reading outside the QC thresholds. Batches share one scale, so they compare at a glance.
 
-![One bar per library, coloured by hyb pool](docs/graphs.png)
+![One dot per library, grouped and coloured by hyb pool](docs/graphs.png)
+
+![The hyb batch uses the same pool colours](docs/graphs-hyb.png)
 
 **Compare.** Pick two batches and see what changed, in plain words: settings, volumes, times, steps, QC and notes.
 

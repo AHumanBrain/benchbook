@@ -1,12 +1,11 @@
 import { fmt } from './calc.js';
 import * as P from './plate.js';
-import { esc, db, persist, download, newId, hooks } from './shared.js';
+import { esc, db, persist, download, newId, hooks, poolColor } from './shared.js';
 import { toast } from './toast.js';
 
 const root = () => document.getElementById('app');
 const plateOf = b => db.plates[b.plate.plateId] || null;
 const qcSet = b => b.qc.sets.find(s => s.id === b.plate.qcSetId) || null;
-const poolColor = p => `hsl(${(p * 47 + 160) % 360} 55% 50%)`;
 const key = s => String(s).trim().toLowerCase();
 
 function context(b) {

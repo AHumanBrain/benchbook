@@ -29,10 +29,22 @@ export function hydrateBatch(seed, recipe, ensure) {
   return b;
 }
 
+/** Seeded readings have ids like "q-b1"; readings you paste get random ids. Readings cannot be edited, only deleted, so a seeded
+ *  set is always exactly as imported and a newer seed may replace it (or drop it if the seed no longer has it). */
+const isSeedSet = set => /^q-[a-z0-9-]+$/i.test(set.id);
+
+function refreshSeedSets(existing, recipe) {
+  const fresh = new Map((recipe.qc?.sets || []).map(s => [s.id, s]));
+  existing.qc.sets = existing.qc.sets
+    .filter(s => !isSeedSet(s) || fresh.has(s.id))
+    .map(s => (isSeedSet(s) ? clone(fresh.get(s.id)) : s));
+  if (existing.plate?.qcSetId && !existing.qc.sets.some(s => s.id === existing.plate.qcSetId)) existing.plate.qcSetId = recipe.plate?.qcSetId ?? null;
+}
+
 /** Bring the seed's batches into `db`. Returns how many batches were added.
  *  - Missing batches are added; ones you deleted stay deleted unless `force` (the "restore" button).
- *  - When the seed's version changes, batches nobody has edited are replaced by the new version, and an edited batch only
- *    gains the links it was missing. Nothing else about an edited batch is ever touched. */
+ *  - When the seed's version changes, batches nobody has edited are replaced by the new version. An edited batch keeps all its
+ *    edits (ticks, notes, names, pools, wells); it only gains missing links and gets its seeded readings corrected. */
 export function applySeed(db, seed, { force = false, ensure }) {
   db.settings.deleted ??= {};
   const versionChanged = db.settings.seedVersion !== seed.version;
@@ -42,9 +54,12 @@ export function applySeed(db, seed, { force = false, ensure }) {
     const existing = db.batches[recipe.id];
     if (existing) {
       if (versionChanged && isPristineSeed(existing)) db.batches[recipe.id] = hydrateBatch(seed, recipe, ensure);
-      else if (versionChanged && recipe.links?.length && !existing.links?.length) {
-        existing.links = [...recipe.links];
-        existing.role ??= recipe.role;
+      else if (versionChanged) {
+        if (recipe.links?.length && !existing.links?.length) {
+          existing.links = [...recipe.links];
+          existing.role ??= recipe.role;
+        }
+        refreshSeedSets(existing, recipe);
       }
       continue;
     }

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { diffProtocols, diffBatches } from '../src/diff.js';
-import { qcLabels, series, median, libraryQcSet, libraryBars, previousBatch, batchDate } from '../src/overview.js';
+import { qcLabels, series, median, libraryQcSet, libraryPoints, poolsFor, scaleMax, previousBatch, batchDate } from '../src/overview.js';
 import { summarize, DEFAULT_THRESHOLDS as THR } from '../src/qc.js';
 import { newBatch } from '../src/calc.js';
 import { defaultPlate } from '../src/plate.js';
@@ -97,6 +97,16 @@ test('previousBatch prefers the same protocol and respects dates', () => {
   assert.equal(batchDate(a), '2026-10-01T12:00:00');
 });
 
+test('previousBatch never pairs a prep with a hyb', () => {
+  const hybProtocol = { id: 'xgen_hyb_wash_v3', name: 'IDT xGen Hybridization and Wash v3' };
+  const prep = mk('p', 'P', { prep: '2026-10-01' });
+  const hyb1 = mk('h1', 'H1', { prep: '2026-10-02', protocol: hybProtocol });
+  const hyb2 = mk('h2', 'H2', { prep: '2026-10-09', protocol: hybProtocol });
+  assert.equal(previousBatch({ prep, hyb1, hyb2 }, hyb1), null);        // the only earlier batch is a prep
+  assert.equal(previousBatch({ prep, hyb1, hyb2 }, hyb2).id, 'h1');
+  assert.equal(previousBatch({ prep, hyb1, hyb2 }, prep), null);
+});
+
 test('series: ordered by date, medians, flagged points and protocol-change markers', () => {
   const p2 = clone(kapa); p2.revision = 2;
   const a = mk('a', 'A', { prep: '2026-10-01', sets: [set('q', 'Pre-capture libraries', [100, 200, 3])] });
@@ -113,14 +123,42 @@ test('series: ordered by date, medians, flagged points and protocol-change marke
   assert.equal(median([]), null);
 });
 
-test('per-library bars carry value, flag and pool, matched by name', () => {
+test('per-library dots carry value, flag and pool, matched by name', () => {
   const a = mk('a', 'A', { sets: [set('r', 'RNA input', [10, 20]), set('q', 'Pre-capture libraries', [100, 4, 300])] });
   a.plate = { ...defaultPlate(), qcSetId: 'q', samples: [{ name: 'L1', well: 'D1', pool: 1 }, { name: 'l2', well: 'D2', pool: 1 }, { name: 'L3', well: 'D3', pool: 2 }] };
   assert.equal(libraryQcSet(a).id, 'q');
-  const { set: s, bars } = libraryBars(a, null, 'conc', THR);
+  const { set: s, points } = libraryPoints(a, { a }, null, 'conc', THR);
   assert.equal(s.id, 'q');
-  assert.deepEqual(bars.map(x => [x.name, x.v, x.flagged, x.pool]), [['L1', 100, false, 1], ['L2', 4, true, 1], ['L3', 300, false, 2]]);
-  assert.equal(libraryBars(a, 'r', 'conc', THR).bars.length, 2);                 // another set on request
-  assert.equal(libraryBars(a, 'q', 'r280', THR).bars.every(x => !x.flagged), true);
-  assert.equal(libraryBars(mk('e', 'E'), null, 'conc', THR).set, null);          // no QC yet
+  assert.deepEqual(points.map(x => [x.name, x.v, x.flagged, x.pool]), [['L1', 100, false, 1], ['L2', 4, true, 1], ['L3', 300, false, 2]]);
+  assert.equal(libraryPoints(a, { a }, 'r', 'conc', THR).points.length, 2);                 // another set on request
+  assert.deepEqual(libraryPoints(a, { a }, 'r', 'conc', THR).points.map(x => x.pool), [1, 1]);   // another set joins the plate by library name
+  assert.equal(libraryPoints(a, { a }, 'q', 'r280', THR).points.every(x => !x.flagged), true);
+  assert.equal(libraryPoints(mk('e', 'E'), {}, null, 'conc', THR).set, null);                // no QC yet
+});
+
+test('pools: a prep reads them from its plate; a hyb reading n is pool n when linked to a pooled prep', () => {
+  const prep = mk('p', 'P · prep', { sets: [set('q', 'Pre-capture libraries', [1, 2, 3, 4])] });
+  prep.plate = { ...defaultPlate(), samples: [1, 2, 3, 4].map((i, k) => ({ name: `L${i}`, well: null, pool: k < 2 ? 1 : 2 })) };
+  const hyb = mk('h', 'P · hyb', { sets: [{ id: 'qh', label: 'Post-capture libraries', rows: [{ name: 'SI_1-2', conc: 40 }, { name: 'SI_3-4', conc: 50 }] }] });
+  hyb.role = 'hyb';
+  const lonely = { ...hyb, id: 'x', links: [] };
+  hyb.links = ['p'];
+  const all = { p: prep, h: hyb, x: lonely };
+  assert.deepEqual(poolsFor(prep, all, prep.qc.sets[0]), [1, 1, 2, 2]);
+  assert.deepEqual(poolsFor(hyb, all, hyb.qc.sets[0]), [1, 2]);
+  assert.deepEqual(poolsFor(lonely, all, lonely.qc.sets[0]), [null, null]);        // not linked to a prep: no guessing
+  const noPools = { ...prep, id: 'n', plate: { ...defaultPlate(), samples: prep.plate.samples.map(x => ({ ...x, pool: null })) } };
+  const hyb2 = { ...hyb, id: 'h2', links: ['n'] };
+  assert.deepEqual(poolsFor(hyb2, { n: noPools, h2: hyb2 }, hyb2.qc.sets[0]), [null, null]);   // the prep has no pools either
+  const s = series({ p: prep, h: hyb }, 'Post-capture libraries', 'conc', THR);
+  assert.deepEqual(s[0].points.map(x => x.pool), [1, 2]);
+});
+
+test('one shared scale: the largest reading of a measurement in any batch', () => {
+  const a = mk('a', 'A', { sets: [set('q', 'Pre-capture libraries', [100, 200])] });
+  const b = mk('b', 'B', { sets: [set('q', 'Pre-capture libraries', [50, 528])] });
+  const c = mk('c', 'C', { sets: [set('q', 'Post-capture libraries', [999])] });
+  assert.equal(scaleMax({ a, b, c }, 'Pre-capture libraries', 'conc'), 528);
+  assert.equal(scaleMax({ a, b, c }, 'Post-capture libraries', 'conc'), 999);
+  assert.equal(scaleMax({ a, b, c }, 'Nothing', 'conc'), null);
 });

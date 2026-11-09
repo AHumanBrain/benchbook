@@ -52,23 +52,25 @@ test('readings are exactly the workbook values', () => {
   const b5 = hydrated('seed-b5-prep');
   assert.deepEqual(conc(b5), [229.0, 322.2, 112.8, 232.9, 205.9, 198.4, 128.9, 98.7, 262.2, 191.0, 298.8, 372.3, 485.6, 220.4, 229.3, 132.0, 465.4, 406.4, 287.7, 528.6, 506.7, 405.3, 169.1, 333.0]);
   const b1 = hydrated('seed-b1-prep');
-  assert.equal(b1.qc.sets[0].rows.length, 25);                 // 24 libraries plus a re-measurement, preR23_2
+  assert.equal(b1.qc.sets[0].rows.length, 24);                 // preR23 was read twice to check for a bubble: one library, not two
+  assert.ok(!b1.qc.sets[0].rows.some(r => /_2$/.test(r.name)));
+  assert.equal(b1.qc.sets[0].rows[22].name, 'preR23');
+  assert.equal(b1.qc.sets[0].rows[22].conc, 18.7);             // the first reading is the one used
+  assert.ok(b1.qc.sets[0].warnings.some(w => /preR23 was read twice \(18\.7 and 18\.5/.test(w)));
+  const replicateNote = Object.values(b1.state).flatMap(x => x.notes).find(n => /read twice/.test(n.text));
+  assert.match(replicateNote.text, /second reading matched the first/);
   assert.equal(b1.qc.sets[0].rows[0].name, 'preR1');
   assert.equal(b1.qc.sets[0].rows[0].conc, 68.8);
   assert.equal(hydrated('seed-rnaiso-prep').qc.sets[0].rows.length, 12);
   assert.equal(hydrated('seed-b4-hyb').qc.sets[0].rows.length, 8);
 });
 
-test('batch 4 has NanoDrop, Qubit HS and Qubit BR for the same 24 libraries (and the sheet\'s BR ratio was inverted)', () => {
+test('batch 4 carries only its NanoDrop readings; the Qubit comparison is left behind', () => {
   const b4 = hydrated('seed-b4-prep');
-  assert.deepEqual(b4.qc.sets.map(s => s.label), ['Pre-capture libraries', 'Pre-capture libraries (Qubit HS)', 'Pre-capture libraries (Qubit BR)']);
-  const [nd, hs, br] = [0, 1, 2].map(i => conc(b4, i));
-  const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
-  assert.ok(Math.abs(mean(nd.map((v, i) => v / hs[i])) - 2.056) < 0.001);
-  assert.ok(Math.abs(mean(nd.map((v, i) => v / br[i])) - 1.169) < 0.001);      // NanoDrop / BR, not the sheet's 0.865
-  assert.ok(Math.abs(mean(br.map((v, i) => v / nd[i])) - 0.865) < 0.001);      // that 0.865 is BR / NanoDrop
-  const note = Object.values(b4.state).flatMap(s => s.notes).find(n => /Qubit dsDNA HS/.test(n.text));
-  assert.match(note.text, /1\.2x Qubit dsDNA BR/);
+  assert.deepEqual(b4.qc.sets.map(s => s.label), ['Pre-capture libraries']);
+  assert.equal(b4.qc.sets[0].rows.length, 24);
+  assert.deepEqual(conc(b4).slice(0, 4), [222.3, 111.9, 163.7, 358.2]);
+  assert.equal(JSON.stringify(seed).includes('Qubit'), false);
 });
 
 test('UDI wells: batch 1 D1-E12, batch 2 F1-G12, DNase screen A1-B6, no overlaps', () => {
@@ -190,4 +192,36 @@ test('pristine copies on both sides are not a conflict, and an edited local batc
   const other = { batches: { 'seed-b1-prep': { ...hydrated('seed-b1-prep'), name: 'edited elsewhere' } }, protocols: {}, plates: {}, deleted: {} };
   assert.deepEqual(mergeBackup(fresh, other), { added: 0, overwritten: 0, skipped: 1 });
   assert.equal(fresh.batches['seed-b1-prep'].name, 'edited here');
+});
+
+test('a newer seed corrects seeded readings in an edited batch and leaves everything else alone', () => {
+  const db = mkdb();
+  applySeed(db, seed, { ensure: ensureBatch });
+  const b = db.batches['seed-b4-prep'];
+  // what an older seed left behind: two Qubit sets, which the current seed no longer has
+  b.qc.sets.push({ id: 'q-b4-hs', label: 'Pre-capture libraries (Qubit HS)', rows: [{ name: 'x', conc: 1 }], warnings: [] });
+  b.qc.sets.push({ id: 'q-b4-br', label: 'Pre-capture libraries (Qubit BR)', rows: [{ name: 'x', conc: 2 }], warnings: [] });
+  b.qc.sets.push({ id: 'qmy1abc', label: 'my own paste', rows: [{ name: 'mine', conc: 3 }], warnings: [] });   // pasted by the person
+  b.qc.sets[0].rows[0].conc = 999;                                                                          // a stale seeded reading
+  b.plate.name = 'kept';
+  b.state['0.0'] = { done: '2026-10-01', timer: null, notes: [{ t: 'x', tag: 'idea', text: 'my note' }] };
+  db.settings.seedVersion = 2;
+  applySeed(db, seed, { ensure: ensureBatch });
+  assert.deepEqual(b.qc.sets.map(x => x.id), ['q-b4-nd', 'qmy1abc']);          // Qubit sets gone, mine kept
+  assert.equal(b.qc.sets[0].rows[0].conc, 222.3);                              // seeded reading corrected
+  assert.equal(b.state['0.0'].notes[0].text, 'my note');                       // edits untouched
+  assert.equal(b.state['0.0'].done, '2026-10-01');
+  assert.equal(b.plate.qcSetId, 'q-b4-nd');
+});
+
+test('a seeded set you deleted on purpose does not come back with a newer seed', () => {
+  const db = mkdb();
+  applySeed(db, seed, { ensure: ensureBatch });
+  const b = db.batches['seed-b5-prep'];
+  b.qc.sets = [];
+  b.plate.qcSetId = null;
+  b.name = 'edited';
+  db.settings.seedVersion = 2;
+  applySeed(db, seed, { ensure: ensureBatch });
+  assert.equal(b.qc.sets.length, 0);
 });

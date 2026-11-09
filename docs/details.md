@@ -2,6 +2,17 @@
 
 The short version is in the [README](../README.md). This page has the detail.
 
+## Charts
+
+Every chart follows the same rules, so batches can be read side by side.
+
+- **Dots, not bars.** A library has one reading, so each is a dot (with a thin stem to the axis). The dots keep the same size whether a batch has 3 libraries or 25, and the Overview uses the same dots.
+- **One colour per hyb pool**, everywhere: on the plate, in the pooling plan, in each batch's graph and on the Overview. In a hyb batch, reading *n* is pool *n* (when the hyb is linked to a prep that has pools). Libraries without a pool are grey.
+- **A ring means outside the QC thresholds.** The fill never changes, so the pool colour is never lost.
+- **Grouped by pool**, with a bracket and the pool number under each group, and library names angled the same way in every chart.
+- **Median and threshold** are labelled in the right margin, where they cannot sit on a dot.
+- **Shared scale.** Concentration charts use one scale across batches of the same measurement (prep readings together, post-capture readings together), so a dot at the same height is the same concentration. Untick *Same scale as the other batches* to zoom in on one batch.
+
 ## Runs, links and the next batch
 
 - **Links.** A batch can be linked to the batches it belongs with (a prep and its hyb). Links are two-way, shown under each batch's title, and managed on the Batch info tab. The home page groups linked batches into one card with a prep → hyb → capture → sequencing date strip. Batches are told apart as *library prep* or *hyb & capture* by the protocol they use.
@@ -21,13 +32,14 @@ Export a single batch from its Batch info tab.
 
 ## Your workbook, already loaded
 
-`data/seed.json` holds the lab workbook's 14 batches (8 library preps and 6 hyb and captures: dates, master-mix overage, NanoDrop and Qubit readings, UDI wells, ticked steps and notes). They load the first time the app opens, so there is data to explore straight away.
+`data/seed.json` holds the lab workbook's 14 batches (8 library preps and 6 hyb and captures: dates, master-mix overage, NanoDrop readings, UDI wells, ticked steps and notes). They load the first time the app opens, so there is data to explore straight away.
 
 - They are ordinary batches: edit them, add notes, delete them. Edited batches are never replaced, and a batch you delete stays deleted. **Restore workbook batches** (on the home page) brings back any you removed.
 - Imported batches are marked "from workbook" until you change them. Backups are aware of this: a backup folder that holds your edited version of an imported batch is never overwritten by a fresh copy.
-- What was left out on purpose: personal names, and purely administrative steps (LIMS, labels, e-mails). Ticked steps carry the date only (the workbook has no times).
+- What was left out on purpose: personal names, purely administrative steps (LIMS, labels, e-mails), and the Qubit readings (batch 4's tab compared NanoDrop with two Qubit assays; that was a check on the NanoDrop, so only the NanoDrop readings are imported). Ticked steps carry the date only (the workbook has no times).
 - Protocol changes recorded in the workbook are kept: from batch 4 the bead drying step is dropped and elution is 20 µL of water; from batch 5 the adapter is master-mixed with the ligation (50 µL dispense). Batches 1 to 3 used the built-in numbers. Use **Compare** to see them.
-- **Data problems found while importing**, handled as follows: batch 6's NanoDrop table (and its hyb, capture and sequencing dates) was an exact stale copy of the RNA isolation tab, so none of it is imported and batch 6 is shown as planned; batch 4's "nanodrop/BR" ratio column in the workbook is BR ÷ NanoDrop while "nanodrop/HS" is NanoDrop ÷ HS, so the note says NanoDrop reads about 1.2× Qubit BR (not 0.9×); hyb batch 2 lists the sample ID `SI_44453-58` twice (the workbook notes pools 3 and 4 went into one tube), kept as recorded with the duplicate warning; batch 3's sequencing date ("2609XX") is blank.
+- **Data problems found while importing**, handled as follows: batch 6's NanoDrop table (and its hyb, capture and sequencing dates) was an exact stale copy of the RNA isolation tab, so none of it is imported and batch 6 is shown as planned; hyb batch 2 lists the sample ID `SI_44453-58` twice (the workbook notes pools 3 and 4 went into one tube), kept as recorded with the duplicate warning; batch 3's sequencing date ("2609XX") is blank.
+- **Read twice is still one library.** In batch 1, preR23 was read a second time (`preR23_2`) to check for a bubble in the NanoDrop spot. The readings matched (18.7 and 18.5 ng/µL), so it is one library: the first reading is used, the second is recorded in a note and in a warning on the QC tab, and it is not a 25th reading.
 - Pools: libraries are grouped in consecutive sets of the workbook's plex (3, or 6 for the DNase screen). That matches its pool IDs (`SI_44371-44373` is three consecutive libraries). The RNA isolation test's pools are not assigned because the workbook does not say which libraries went where.
 
 To rebuild the file from the workbook (needs `openpyxl`; the workbook itself is not in the repo): `python3 scripts/seed/build_seed.py workbook.xlsx > data/seed.json`.

@@ -170,15 +170,10 @@ svg.chart { width: 100%; min-width: 640px; height: auto; display: block; }
 .chart .limit-label { fill: var(--warn); font-size: 11px; }
 .chart .band { fill: var(--accent-soft); opacity: .7; }
 .chart .divider { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 5; }
-.chart .dot { fill: var(--accent); fill-opacity: .55; }
-.chart .dot.flag { fill: var(--warn); fill-opacity: .9; }
 .chart .median { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
-.chart .col { fill: var(--accent); fill-opacity: .8; }
-.chart .col.flag { fill: var(--warn); fill-opacity: 1; }
 .sw-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); opacity: .6; vertical-align: -1px; }
 .sw-dot.flag { background: var(--warn); opacity: .9; }
 .sw-med { display: inline-block; width: 16px; height: 0; border-top: 2.5px solid var(--ink); vertical-align: 3px; }
-.sw-flag { display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: var(--warn); }
 
 /* compare */
 tr.same td { color: var(--muted); }
@@ -221,3 +216,16 @@ details.poolcard summary { cursor: pointer; }
 details.poolcard td.num.flag { color: var(--warn); font-weight: 650; }
 
 .row.btns { flex-wrap: nowrap; flex-shrink: 0; }
+
+/* dot plots: one look for every chart */
+.chart .dot { fill-opacity: .88; stroke: var(--card); stroke-width: 1.5; }
+.chart .dot.flag { stroke: var(--warn); stroke-width: 3; }
+.chart .stem { stroke-width: 2.5; stroke-linecap: round; opacity: .45; }
+.chart .median-line { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 2 4; opacity: .85; }
+.chart .median-label { fill: var(--ink); font-size: 11px; }
+.chart .val { font-size: 10px; fill: var(--muted); }
+.chart .name { font-size: 11px; fill: var(--muted); }
+.chart .poolname { font-size: 11px; font-weight: 650; fill: var(--ink); }
+.chart .bracket { stroke-width: 4; stroke-linecap: round; }
+.chartkey { gap: 4px 12px; margin-top: 4px; }
+.sw-ring { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 3px solid var(--warn); background: var(--muted); vertical-align: -2px; }

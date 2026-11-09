@@ -179,7 +179,7 @@ test('a newer seed refreshes untouched imports and only adds missing links to ed
   assert.equal(db.batches['seed-b2-prep'].name, 'edited by me');         // edit kept ...
   assert.deepEqual(db.batches['seed-b2-prep'].links, ['seed-b2-hyb']);   // ... and it gained its link
   assert.deepEqual(db.batches['seed-b3-prep'].links, ['somewhere-else']); // its own links win
-  assert.equal(db.settings.seedVersion, 2);
+  assert.equal(db.settings.seedVersion, seed.version);
 });
 
 test('wells read as ranges in fill order', () => {

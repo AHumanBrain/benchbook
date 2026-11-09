@@ -1,5 +1,5 @@
 // Which batches belong to one run (a library prep and the hyb and capture that follows it). Pure, no DOM.
-import { batchDate } from './overview.js';
+import { batchDate } from './dates.js';
 
 /** 'prep' or 'hyb': stored on the batch, else guessed from its protocol (the xGen hyb and wash protocol and copies of it). */
 export function roleOf(b) {

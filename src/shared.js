@@ -34,6 +34,9 @@ export function ensureBatch(b) {
 }
 Object.values(db.batches).forEach(ensureBatch);
 
+/** One colour per hyb pool, used on the plate, in pooling plans and in every chart. */
+export const poolColor = p => `hsl(${(p * 47 + 160) % 360} 55% 50%)`;
+
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 /** Dates only ("2026-08-10", from imported history) show as a date; full timestamps show the time too. */
 export const clock = iso => {

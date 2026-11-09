@@ -4,7 +4,7 @@
     python3 scripts/seed/build_seed.py path/to/workbook.xlsx > data/seed.json
 
 Needs openpyxl. The workbook itself is not kept in the repo. Each tab becomes one batch: its dates, master-mix
-overage, NanoDrop/Qubit readings, UDI wells, ticked steps and notes. Notes are rewritten by hand below (no personal
+overage, NanoDrop readings, UDI wells, ticked steps and notes. Notes are rewritten by hand below (no personal
 names), and purely administrative rows (LIMS, labels, e-mails) are left out. Decisions about stale data are in the
 comments: tabs copied forward from an earlier batch keep their old readings, which must not be imported.
 """
@@ -213,7 +213,7 @@ def std_rows(ws, blank_prefix, make_unique=False):
     """The usual NanoDrop export: '#', Sample ID, ..., Nucleic Acid, Unit, ..., 260/280, 260/230."""
     r0 = nanodrop_hdr(ws)
     hd = {str(ws.cell(r0, c).value).strip(): c for c in range(1, ws.max_column + 1) if ws.cell(r0, c).value is not None}
-    rows, blanks = [], 0
+    rows, blanks, warnings = [], 0, []
     r = r0 + 1
     while any(ws.cell(r, c).value is not None for c in range(1, ws.max_column + 1)):
         name = ws.cell(r, hd['Sample ID']).value
@@ -227,7 +227,13 @@ def std_rows(ws, blank_prefix, make_unique=False):
                      'r280': float(ws.cell(r, hd['260/280']).value), 'r230': float(ws.cell(r, hd['260/230']).value),
                      'date': dt.strftime('%Y-%m-%d %H:%M') if hasattr(dt, 'strftime') else ''})
         r += 1
-    warnings = []
+    # a name like preR23_2 beside preR23 is the same library read a second time (a bubble check), not another library
+    by_name = {x['name']: x for x in rows}
+    for x in list(rows):
+        m = re.fullmatch(r'(.+)_2', x['name'])
+        if m and m[1] in by_name:
+            warnings.append(f"{m[1]} was read twice ({by_name[m[1]]['conc']:g} and {x['conc']:g} ng/µL) to rule out a bubble in the NanoDrop spot; the first reading is used.")
+            rows.remove(x)
     if blanks:
         warnings.append(f'the Sample ID column was blank for {blanks} row(s): named "{blank_prefix} 1", "{blank_prefix} 2"… from the # column.')
     if make_unique:
@@ -272,7 +278,8 @@ INDIV1 = ('1.0', 'observation', "Hybridization buffer and panel added individual
 
 NOTES = {
     'KAPA RNA HyperPrep - batch 1': [PIP, ('0.0', 'idea', 'Lower the master-mix overage to 5%.'), ('2.1', 'idea', 'Ligation can be as short as 15 minutes.'),
-        ('5.0', 'deviation', 'Noticed lower volume of indexing primers in plate positions D1-D8 than in the rest of the row.')],
+        ('5.0', 'deviation', 'Noticed lower volume of indexing primers in plate positions D1-D8 than in the rest of the row.'),
+        ('6.0.4', 'observation', 'preR23 was read twice (18.7 and 18.5 ng/µL) to check for a bubble in the NanoDrop spot. The second reading matched the first, so the low value stands.')],
     'KAPA RNA HyperPrep - batch 2': [PIP, MM, RED, ('3.0', 'observation', 'Did I skip a tube? The NanoDrop should show it.'),
         ('4.0.3', 'deviation', 'Eluted overnight at 4 °C.'), ('5.0', 'observation', 'Index overlap check with another user of the index plate: some overlapping.'),
         ('6.0.4', 'observation', "High quants mean USER wasn't forgotten.")],
@@ -280,11 +287,7 @@ NOTES = {
         ('3.0', 'observation', "Interrupted during USER: hope I didn't miss any reactions."), HOLD],
     'KAPA RNA HyperPrep - batch 3': [PIP, MM, RED, ('4.0.3', 'deviation', 'Eluted this batch for 30 minutes.'), HOLD],
     'KAPA RNA HyperPrep - batch 4': [PIP, MM, RED, ('3.0', 'observation', 'I always feel like I forget a tube, but it has yet to happen.'), BIND,
-        ('4.0.3', 'deviation', 'Eluted overnight at 4 °C.'), OBI,
-        # the workbook's 'nanodrop/HS' column is NanoDrop / HS (mean 2.06) but its 'nanodrop/BR' column is BR / NanoDrop (mean 0.87),
-        # so its note "NanoDrop reads 0.9x Qubit BR" is inverted: NanoDrop / BR averages 1.17.
-        ('6.0.4', 'observation', 'NanoDrop vs Qubit on these 24 libraries: NanoDrop reads about 2.1x Qubit dsDNA HS and about 1.2x Qubit dsDNA BR (mean of per-library ratios, n=24). The workbook column "nanodrop/BR" is actually BR/NanoDrop (0.87).'),
-        ('6.0.4', 'observation', 'Qubit assay mix: 5970 µL buffer + 30 µL dye; 1 µL of library per assay.')],
+        ('4.0.3', 'deviation', 'Eluted overnight at 4 °C.'), OBI],
     'KAPA RNA HyperPrep - batch 5': [PIP, ('2.0', 'observation', 'Master-mixed the ligation components with the adapter.'), ICE, RED,
         ('4.0.0', 'deviation', 'Bind took more like 50 minutes.'), OBI,
         ('4.0.4', 'observation', 'Resumed on 2026-10-14 after the NEB and Norgen RNA isolation benchmarking on 2026-10-13.'),
@@ -372,9 +375,7 @@ def kapa_batch(tab, bid, name, variant_id, plex, wells=None, cohyb='', qc_builde
         sets = qc_builder(ws)
     state = build_state(kapa_done(bl), NOTES[tab], date_for, None)
     if sets:
-        names = [r['name'] for r in sets[0]['rows']][:n if tab.endswith('batch 1') else len(sets[0]['rows'])]
-        if bid == 'seed-b1-prep':
-            names = names[:24]
+        names = [r['name'] for r in sets[0]['rows']]
         plate = make_plate(names, wells, plex, sets[0]['id'], PLATE if wells else None)
         if not pooled:
             for smp in plate['samples']:
@@ -420,15 +421,9 @@ def dnase_prep(ws):
 
 
 def b4_sets(ws):
-    n = 24
-    r0 = 94
-    mk = lambda col: simple_rows(ws, r0, None, col, None, None, n, 'Sample')
-    when = '2026-10-02'
-    return [
-        table(mk(4), [], 'Pre-capture libraries', 'q-b4-nd', when, 'table'),
-        table(mk(5), [], 'Pre-capture libraries (Qubit HS)', 'q-b4-hs', when, 'table'),
-        table(mk(6), [], 'Pre-capture libraries (Qubit BR)', 'q-b4-br', when, 'table'),
-    ]
+    """Batch 4's tab compares NanoDrop with two Qubit assays. Only the NanoDrop readings are imported (the Qubit work was a
+    check on the NanoDrop, not data to carry)."""
+    return [table(simple_rows(ws, 94, None, 4, None, None, 24, 'Sample'), [], 'Pre-capture libraries', 'q-b4-nd', '2026-10-02', 'table')]
 
 
 def rna_iso(ws):
@@ -491,7 +486,7 @@ def main():
         by_id[hyb]['links'].append(prep)
     batches.sort(key=lambda b: b['created'])
     seed = {
-        'version': 2,
+        'version': 3,
         'plates': {PLATE: {'id': PLATE, 'name': 'UDI plate (from workbook)', 'flags': {w: 'Noticed lower volume of indexing primers (batch 1)' for w in wells_between('D1', 'D8')}}},
         'protocols': PROTOCOLS,
         'batches': batches,

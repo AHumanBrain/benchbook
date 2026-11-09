@@ -2,7 +2,7 @@
 import { newBatch } from './calc.js';
 import { assignWells, plateUses, autoPool, wellOrder } from './plate.js';
 import { roleOf } from './runs.js';
-import { batchDate } from './overview.js';
+import { batchDate } from './dates.js';
 
 /** "Batch 5 · prep" -> "Batch 6 · prep" (the last number goes up until the name is free); no number -> "name (2)". */
 export function bumpName(name, taken) {

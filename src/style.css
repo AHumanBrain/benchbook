@@ -191,3 +191,33 @@ tr.changed td { background: var(--warn-soft); font-weight: 600; }
 .diff s { color: var(--muted); }
 #topnav a.btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); text-decoration: none; }
 .chart .limit-label { paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; }
+
+/* toasts */
+#toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: 76px; z-index: 30; display: grid; gap: 8px; width: min(94vw, 520px); pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; background: var(--ink); color: var(--bg); border-radius: 10px; padding: 10px 12px; box-shadow: 0 6px 24px rgba(0,0,0,.28); font-size: 0.92rem; animation: toast-in .16s ease-out; }
+.toast .msg { flex: 1; white-space: pre-line; overflow-wrap: anywhere; }
+.toast button { appearance: none; border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; border-radius: 6px; padding: 4px 8px; }
+.toast button.undo { font-weight: 700; text-decoration: underline; }
+.toast button:hover { background: rgba(127,127,127,.25); }
+.toast.error { background: var(--bad); color: #fff; }
+.toast.warn { background: var(--warn); color: #fff; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+/* runs: a prep and its hyb together */
+.card.run { display: grid; gap: 8px; }
+.runrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 8px; border-top: 1px dashed var(--line); }
+.runrow .grow { flex: 1; min-width: 12em; }
+.runrow a.title, .batchlist a.title { font-weight: 650; text-decoration: none; color: var(--ink); }
+.stagebar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
+.stagebar i { font-style: normal; opacity: .6; }
+.pill { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15; border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; min-width: 4.4em; }
+.pill b { font-weight: 650; color: var(--muted); }
+.pill.on { background: var(--accent-soft); border-color: transparent; }
+.pill.on b { color: var(--accent); }
+.preview { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.warnline { color: var(--warn); font-weight: 600; }
+details.poolcard summary { cursor: pointer; }
+details.poolcard td.num.flag { color: var(--warn); font-weight: 650; }
+
+.row.btns { flex-wrap: nowrap; flex-shrink: 0; }

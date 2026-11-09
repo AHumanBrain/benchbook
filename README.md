@@ -8,6 +8,16 @@ A bench-side notebook for library prep and hybrid capture: master-mix maths, ste
 
 ## What it does
 
+**Runs.** A library prep and the hyb and capture that follows it are linked, so the home page shows them together with their dates from prep to sequencing. Create the hyb from a prep and its pooling plan (the µL of each library) sits at the top of the hyb's Bench tab.
+
+![Batches grouped into runs, with dates from prep to sequencing](docs/batches.png)
+
+![The pooling plan at the top of a hyb batch](docs/pooling.png)
+
+**Next batch.** One click starts a new batch like an earlier one: same protocol, overage and thermocycler, with the new libraries on the next free index wells. You see exactly which wells before you create it.
+
+![Starting the next batch: what you get, including the wells](docs/next.png)
+
 **Bench.** Enter the number of reactions and the overage, and every volume is worked out. Tick steps off, start timers for binds and incubations, add notes (observation, deviation, error, idea). Print the Plan tab as a bench sheet.
 
 ![A step on the bench: master mix table, tick box and note](docs/bench.png)
@@ -36,6 +46,7 @@ A bench-side notebook for library prep and hybrid capture: master-mix maths, ste
 
 - Everything is stored in your browser, on one device. Nothing is uploaded.
 - **Back it up:** the chip at the top right shows whether you are safe. Pick a folder (Chrome or Edge) and every change is saved there, or export everything to one file.
+- Deleting something shows a small **Undo** button instead of asking first.
 - The 14 batches from the lab workbook are already loaded, so there is data to look at. They are normal batches: edit or delete them freely.
 
 ## Run it yourself

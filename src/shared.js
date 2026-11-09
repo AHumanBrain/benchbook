@@ -18,7 +18,7 @@ db.settings.deleted ??= {}; // ids removed on purpose, so a backup folder does n
 db.settings.qc = { ...DEFAULT_THRESHOLDS, ...db.settings.qc };
 
 /** Other modules (the backup folder) register here to be told after every save. */
-export const hooks = { afterPersist: null };
+export const hooks = { afterPersist: null, render: () => {}, loadProtocol: async () => null };
 
 export function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { /* private mode: stays in memory */ }

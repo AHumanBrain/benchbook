@@ -4,7 +4,8 @@ import {
   STEP_TYPES, TYPE_LABEL, FIELDS, ROW_FIELDS, getPath, setPath, clone, makeDefault, parseDuration, durationText,
   blankProtocol, duplicateProtocol, validateProtocol, normalizeProtocol,
 } from './protocol_edit.js';
-import { db, persist, esc, download } from './shared.js';
+import { db, persist, esc, download, hooks } from './shared.js';
+import { toast } from './toast.js';
 
 let builtins = {};                 // id -> shipped protocol (read-only)
 let draft = null;                  // { id, p, dirty, errors, flash } the protocol being edited
@@ -170,10 +171,10 @@ export const clicks = {
   },
   'pe-delete': el => {
     const p = db.protocols[el.dataset.id];
-    if (!confirm(`Delete "${p.name}"? Batches already started from it are not affected.`)) return 'none';
     delete db.protocols[p.id];
     db.settings.deleted[p.id] = new Date().toISOString();
     if (draft?.id === p.id) draft = null;
+    toast(`Deleted the protocol "${p.name}". Batches started from it are not affected.`, { undo: () => { db.protocols[p.id] = p; delete db.settings.deleted[p.id]; persist(); hooks.render(); } });
   },
   'pe-add': el => {
     const kind = el.dataset.kind === 'step-from-select' ? document.getElementById(el.dataset.select).value : el.dataset.kind;
@@ -184,9 +185,13 @@ export const clicks = {
   'pe-del': el => {
     const list = arr(el.dataset.path);
     const item = list[Number(el.dataset.i)];
-    if (el.dataset.path === 'sections' && item.steps.length && !confirm(`Delete the section "${item.title}" and its ${item.steps.length} step(s)?`)) return 'none';
-    list.splice(Number(el.dataset.i), 1);
+    const at = Number(el.dataset.i);
+    list.splice(at, 1);
     touch();
+    if (el.dataset.path === 'sections' || el.dataset.path.endsWith('.steps')) {
+      const what = el.dataset.path === 'sections' ? `the section "${item.title}"` : `the step "${item.title ?? String(item.text).slice(0, 40)}"`;
+      toast(`Removed ${what}.`, { undo: () => { list.splice(at, 0, item); draft.dirty = true; hooks.render(); } });
+    }
   },
   'pe-move': el => {
     const list = arr(el.dataset.path);
@@ -249,12 +254,12 @@ export const changes = {
     try {
       const p = JSON.parse(await file.text());
       const errs = validateProtocol(p);
-      if (errs.length) { alert(`That protocol has problems:\n\n${errs.slice(0, 8).join('\n')}${errs.length > 8 ? '\n…' : ''}`); return 'none'; }
+      if (errs.length) { toast(`That protocol has problems:\n${errs.slice(0, 8).join('\n')}${errs.length > 8 ? '\n…' : ''}`, { kind: 'error' }); return 'none'; }
       const ids = takenIds();
       const imported = { ...normalizeProtocol(p), custom: true, revision: 1 };
       if (ids.has(imported.id)) imported.id = duplicateProtocol(imported, ids).id;
       newCustom(imported);
-    } catch (e) { alert(`Could not import: ${e.message}`); }
+    } catch (e) { toast(`Could not import: ${e.message}`, { kind: 'error' }); }
     el.value = '';
     return 'none';
   },

@@ -2,6 +2,13 @@
 
 The short version is in the [README](../README.md). This page has the detail.
 
+## Runs, links and the next batch
+
+- **Links.** A batch can be linked to the batches it belongs with (a prep and its hyb). Links are two-way, shown under each batch's title, and managed on the Batch info tab. The home page groups linked batches into one card with a prep → hyb → capture → sequencing date strip. Batches are told apart as *library prep* or *hyb & capture* by the protocol they use.
+- **Hyb from a prep.** On a prep's Batch info tab, *Create the hyb & capture batch from this prep* makes one hyb per pool, copies the dates, uses the same protocol as your latest hyb (else the built-in one), and links both ways. The hyb's Bench and Plan tabs open with the prep's pooling plan. It needs pools (set on the prep's Plate & pools tab).
+- **Next batch.** *Start the next batch* copies protocol revision, overage, thermocycler and plate settings, names the batch by counting up the last number in the name, sets today as the prep date, and creates `Sample 1…n` libraries on the next free wells of the same index plate: after this batch's last well, skipping wells other batches used and flagged wells. If there is not enough room after the last well, the gaps are filled from the top of the plate. You can also pick one of your own protocol revisions instead of the batch's.
+- **Undo.** Deletes (a batch, a note, a QC set, a protocol, a protocol step or section, a well flag, a link) happen at once and show an *Undo* button for a few seconds. Native pop-ups are only used where nothing can be undone: overwriting the backup folder, replacing a batch from a backup file, and discarding unsaved protocol edits.
+
 ## Backup
 
 Open the **Backup** page (the chip in the header).

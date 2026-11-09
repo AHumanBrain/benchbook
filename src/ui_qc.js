@@ -1,6 +1,7 @@
 import { parseQC, flagRow, summarize, DEFAULT_THRESHOLDS } from './qc.js';
 import { fmt } from './calc.js';
-import { esc, clock, db, persist, newId } from './shared.js';
+import { esc, clock, db, persist, newId, hooks } from './shared.js';
+import { toast } from './toast.js';
 
 const LABELS = ['RNA input', 'Pre-capture libraries', 'Post-capture libraries', 'Pooled for hyb'];
 
@@ -55,9 +56,12 @@ export function render(b, header) {
 
 export const clicks = {
   'qc-del': (el, b) => {
-    if (!confirm('Delete this set of measurements? Pool plans that use it will lose their concentrations.')) return 'none';
-    b.qc.sets = b.qc.sets.filter(s => s.id !== el.dataset.id);
-    if (b.plate.qcSetId === el.dataset.id) b.plate.qcSetId = null;
+    const at = b.qc.sets.findIndex(s => s.id === el.dataset.id);
+    const [gone] = b.qc.sets.splice(at, 1);
+    const wasPooling = b.plate.qcSetId === gone.id;
+    if (wasPooling) b.plate.qcSetId = null;
+    toast(`Deleted "${gone.label}" (${gone.rows.length} readings).${wasPooling ? ' Its pool plan lost its concentrations.' : ''}`, {
+      undo: () => { b.qc.sets.splice(at, 0, gone); if (wasPooling) b.plate.qcSetId = gone.id; persist(); hooks.render(); } });
   },
   'qc-thr-reset': () => { db.settings.qc = { ...DEFAULT_THRESHOLDS }; },
 };
@@ -73,7 +77,7 @@ export const submits = {
   'qc-add': (form, data, b) => {
     const names = (data.names || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
     const { rows, warnings, format } = parseQC(data.text, { names });
-    if (!rows.length) { alert(`Nothing usable found: ${warnings.join('; ') || 'no rows'}.`); return 'none'; }
+    if (!rows.length) { toast(`Nothing usable found: ${warnings.join('; ') || 'no rows'}.`, { kind: 'error' }); return 'none'; }
     b.qc.sets.push({ id: newId('q'), label: data.label.trim() || 'Measurements', t: new Date().toISOString(), format, warnings, rows });
   },
 };

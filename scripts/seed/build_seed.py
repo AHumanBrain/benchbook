@@ -479,9 +479,19 @@ def main():
         # are an exact stale copy of the RNA isolation tab, so no readings are imported.
         kapa_batch('KAPA RNA HyperPrep - batch 6', 'seed-b6-prep', 'Batch 6 · prep', 'kapa_v3', 3),
     ]
+    # each library prep and the hyb/capture that processed it (batch 5 and the RNA isolation test were hybridized together)
+    pairs = [('seed-b1-prep', 'seed-b1-hyb'), ('seed-b2-prep', 'seed-b2-hyb'), ('seed-dnase-prep', 'seed-dnase-hyb'), ('seed-b3-prep', 'seed-b3-hyb'),
+             ('seed-b4-prep', 'seed-b4-hyb'), ('seed-b5-prep', 'seed-b5-hyb'), ('seed-rnaiso-prep', 'seed-b5-hyb')]
+    by_id = {b['id']: b for b in batches}
+    for b in batches:
+        b['role'] = 'hyb' if b['id'].endswith('-hyb') else 'prep'
+        b['links'] = []
+    for prep, hyb in pairs:
+        by_id[prep]['links'].append(hyb)
+        by_id[hyb]['links'].append(prep)
     batches.sort(key=lambda b: b['created'])
     seed = {
-        'version': 1,
+        'version': 2,
         'plates': {PLATE: {'id': PLATE, 'name': 'UDI plate (from workbook)', 'flags': {w: 'Noticed lower volume of indexing primers (batch 1)' for w in wells_between('D1', 'D8')}}},
         'protocols': PROTOCOLS,
         'batches': batches,

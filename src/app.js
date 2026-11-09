@@ -1,15 +1,17 @@
 import { flattenProtocol, newBatch, progress, collectNotes, NOTE_TAGS } from './calc.js';
 import { renderItem, timerSeconds } from './render.js';
 
-import { db, persist, ensureBatch, esc, clock, download } from './shared.js';
+import { db, persist, ensureBatch, esc, clock, download, hooks } from './shared.js';
 import * as qcUI from './ui_qc.js';
 import * as plateUI from './ui_plate.js';
 import * as protoUI from './ui_protocols.js';
 import * as backupUI from './ui_backup.js';
 import * as compareUI from './ui_compare.js';
 import * as overviewUI from './ui_overview.js';
+import * as runsUI from './ui_runs.js';
 import * as folder from './folder.js';
 import { applySeed } from './seed.js';
+import { toast } from './toast.js';
 
 const $app = document.getElementById('app');
 const $nav = document.getElementById('topnav');
@@ -40,6 +42,7 @@ function header(b, tab) {
     .map(([id, label]) => `<a class="tab" href="#/b/${b.id}/${id}" ${id === tab ? 'aria-current="page"' : ''}>${label}</a>`).join('');
   return `<h1>${esc(b.name)}</h1>
     <div class="muted small">${esc(b.protocol.name)}${b.protocol.revision ? ` (rev ${b.protocol.revision})` : ''} · ${b.n} ${esc(b.protocol.unit_label)} · overage ${b.overagePct}%</div>
+ ${runsUI.headerLinks(b)}
     <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
     <div class="muted small">${p.done} of ${p.total} steps done</div>
     <nav class="tabs">${tabs}</nav>`;
@@ -48,7 +51,7 @@ function header(b, tab) {
 function viewProtocol(b, tab) {
   document.body.className = tab === 'plan' ? 'plan' : 'bench';
   const items = flattenProtocol(b.protocol);
-  let html = header(b, tab);
+  let html = header(b, tab) + runsUI.poolingCard(b);
   if (tab === 'plan') {
     html += `<div class="row spread"><span class="muted small">All volumes for ${b.n} ${esc(b.protocol.unit_label)}. Print this page for a bench sheet.</span><button class="btn small" data-act="print">Print</button></div>`;
   }
@@ -92,6 +95,7 @@ function viewInfo(b) {
   <div class="card"><h3>Run lineage</h3><div class="timeline">
     ${f('prep', 'Library prep', 'date')}${f('hyb', 'Hyb', 'date')}${f('cap', 'Capture', 'date')}${f('seq', 'Sequencing', 'date')}
   </div><div class="grid" style="margin-top:10px">${f('thermocycler', 'Thermocycler')}${f('cohyb', 'Co-processed with')}</div></div>
+  ${runsUI.infoCards(b)}
   <div class="card row spread"><div><h3>Data</h3><span class="muted small">Stored only in this browser. Export to keep a file copy.</span></div>
     <div class="row"><button class="btn" data-act="export">Export JSON</button><button class="btn danger" data-act="delete">Delete batch</button></div></div>`;
 }
@@ -99,15 +103,7 @@ function viewInfo(b) {
 async function viewHome() {
   document.body.className = 'bench';
   const protos = [...await builtins(), ...Object.values(db.protocols).sort((x, y) => x.name.localeCompare(y.name))];
-  const batches = Object.values(db.batches).sort((a, c) => c.created.localeCompare(a.created));
-  const list = batches.length
-    ? batches.map(b => {
-      const p = progress(b, flattenProtocol(b.protocol));
-      return `<div class="card"><div><a class="title" href="#/b/${b.id}/bench">${esc(b.name)}</a>
-        <div class="muted small">${esc(b.protocol.name)}${b.protocol.revision ? ` rev ${b.protocol.revision}` : ''} · ${b.n} ${esc(b.protocol.unit_label)} · ${p.done}/${p.total} steps · ${clock(b.created)}${b.seed ? ' · <span class="chip">from workbook</span>' : ''}</div></div>
-        <a class="btn small" href="#/b/${b.id}/bench">Open</a></div>`;
-    }).join('')
-    : '<div class="empty">No batches yet. Start one below.</div>';
+  const list = runsUI.renderBatchList();
   const st = backupUI.status();
   const nag = st.level === 'warn' || st.level === 'bad' ? `<a class="card nag" href="#/backup"><b>${esc(st.text)}.</b> Your batches exist only in this browser. <u>Set up a backup</u></a>` : '';
   return `${nag}<h1>Your batches</h1><div class="batchlist">${list}</div>
@@ -140,7 +136,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 /* ---------- nav ---------- */
 function updateNav(parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)) {
   const inBatch = parts[0] === 'b' && batchOf(parts[1]);
-  const cur = inBatch || !parts.length ? 'batches' : parts[0] === 'protocol' ? 'protocols' : parts[0];
+  const cur = inBatch || !parts.length || parts[0] === 'next' ? 'batches' : parts[0] === 'protocol' ? 'protocols' : parts[0];
   const link = (id, href, label) => `<a class="btn small ${cur === id ? 'on' : ''}" href="${href}">${label}</a>`;
   $nav.innerHTML = `${backupUI.chip()}${link('batches', '#/', 'Batches')}${link('overview', '#/overview', 'Overview')}${link('compare', '#/compare', 'Compare')}${link('protocols', '#/protocols', 'Protocols')}<button class="btn small" data-act="theme" aria-label="Switch to ${currentTheme() === 'dark' ? 'light' : 'dark'} mode" title="Switch to ${currentTheme() === 'dark' ? 'light' : 'dark'} mode">${currentTheme() === 'dark' ? '☀ Light' : '☾ Dark'}</button>`;
 }
@@ -163,6 +159,9 @@ async function render() {
   } else if (parts[0] === 'overview') {
     html = overviewUI.renderOverview();
     document.title = 'Overview · benchbook';
+  } else if (parts[0] === 'next') {
+    html = runsUI.renderNext(parts[1]);
+    document.title = 'Next batch · benchbook';
   } else if (parts[0] === 'compare') {
     html = compareUI.renderCompare(parts[1], parts[2]);
     document.title = 'Compare · benchbook';
@@ -196,7 +195,7 @@ $app.addEventListener('click', async e => {
   if (!el) return;
   const act = el.dataset.act;
   const b = currentBatch();
-  const global = protoUI.clicks[act] || backupUI.clicks[act];
+  const global = protoUI.clicks[act] || backupUI.clicks[act] || runsUI.clicks[act];
   if (global) { const r = await global(el, b, e); persist(); if (r !== 'none') render(); return; }
   const ext = qcUI.clicks[act] || plateUI.clicks[act];
   if (ext && b) { const r = await ext(el, b, e); persist(); if (r !== 'none') render(); return; }
@@ -206,14 +205,18 @@ $app.addEventListener('click', async e => {
   } else if (act === 'timer-stop' && b) {
     stateOf(b, el.dataset.key).timer = null;
   } else if (act === 'note-del' && b) {
-    stateOf(b, el.dataset.key).notes.splice(Number(el.dataset.i), 1);
+    const st = stateOf(b, el.dataset.key), at = Number(el.dataset.i);
+    const [gone] = st.notes.splice(at, 1);
+    toast('Note deleted.', { undo: () => { st.notes.splice(at, 0, gone); persist(); render(); } });
   } else if (act === 'print') {
     window.print(); return;
   } else if (act === 'export' && b) {
     download(`${b.name.replace(/\W+/g, '_')}.benchbook.json`, JSON.stringify({ ...b, plateSnapshot: db.plates[b.plate.plateId] || null }, null, 2)); return;
   } else if (act === 'delete' && b) {
-    if (!confirm(`Delete "${b.name}"? Export it first if you want a copy.`)) return;
-    delete db.batches[b.id]; db.settings.deleted[b.id] = new Date().toISOString(); persist(); location.hash = '#/'; return;
+    const gone = b;
+    delete db.batches[gone.id]; db.settings.deleted[gone.id] = new Date().toISOString(); persist(); location.hash = '#/';
+    toast(`Deleted "${gone.name}".`, { undo: () => { db.batches[gone.id] = gone; delete db.settings.deleted[gone.id]; persist(); render(); } });
+    return;
   } else if (act === 'copy-notes' && b) {
     const text = collectNotes(b, flattenProtocol(b.protocol)).map(n => `[${n.tag}] ${n.step}: ${n.text}`).join('\n');
     try { await navigator.clipboard.writeText(text); el.textContent = 'Copied'; } catch { download('notes.txt', text, 'text/plain'); }
@@ -222,7 +225,7 @@ $app.addEventListener('click', async e => {
     const seed = await (await fetch('data/seed.json')).json();
     const n = applySeed(db, seed, { force: true, ensure: ensureBatch });
     persist();
-    alert(n ? `Restored ${n} batch(es) from the lab workbook data.` : 'Every batch from the lab workbook is already here.');
+    toast(n ? `Restored ${n} batch(es) from the lab workbook data.` : 'Every batch from the lab workbook is already here.');
     render(); return;
   } else return;
   persist(); render();
@@ -231,7 +234,7 @@ $app.addEventListener('click', async e => {
 $app.addEventListener('change', async e => {
   const el = e.target;
   const b = currentBatch();
-  const global = protoUI.changes[el.dataset.chg] || backupUI.changes[el.dataset.chg] || compareUI.changes[el.dataset.chg] || overviewUI.changes[el.dataset.chg];
+  const global = protoUI.changes[el.dataset.chg] || backupUI.changes[el.dataset.chg] || compareUI.changes[el.dataset.chg] || overviewUI.changes[el.dataset.chg] || runsUI.changes[el.dataset.chg];
   if (global) { const r = await global(el, b, e); persist(); if (r !== 'none') render(); return; }
   if (el.dataset.chg === 'np-proto') {
     const ov = el.selectedOptions[0]?.dataset.ov;
@@ -260,7 +263,7 @@ $app.addEventListener('change', async e => {
       const snap = imp.plateSnapshot; delete imp.plateSnapshot;
       if (snap && imp.plate?.plateId) db.plates[imp.plate.plateId] ??= snap;
       db.batches[imp.id] = ensureBatch(imp); persist(); location.hash = `#/b/${imp.id}/bench`;
-    } catch (err) { alert(`Could not import: ${err.message}`); }
+    } catch (err) { toast(`Could not import: ${err.message}`, { kind: 'error' }); }
   }
 });
 
@@ -268,6 +271,8 @@ $app.addEventListener('submit', async e => {
   e.preventDefault();
   const form = e.target;
   const data = Object.fromEntries(new FormData(form));
+  const runSubmit = runsUI.submits[form.dataset.act];
+  if (runSubmit) { await runSubmit(form, data, currentBatch()); return; }
   const ext = qcUI.submits[form.dataset.act];
   if (ext) { const b = currentBatch(); if (b) { const r = await ext(form, data, b); persist(); if (r !== 'none') render(); } return; }
   if (form.dataset.act === 'new-batch') {
@@ -282,6 +287,8 @@ $app.addEventListener('submit', async e => {
 });
 
 // Small hook for tests and debugging.
+hooks.render = render;
+hooks.loadProtocol = loadProtocol;
 window.benchbook = { get db() { return db; }, persist };
 folder.init().then(() => updateNav());
 (async () => {

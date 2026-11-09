@@ -29,14 +29,25 @@ export function hydrateBatch(seed, recipe, ensure) {
   return b;
 }
 
-/** Add the seed's batches (and its plates) that are missing. Edited batches are never touched; batches you deleted
- *  stay deleted unless `force` (the "restore" button). Returns how many batches were added. */
+/** Bring the seed's batches into `db`. Returns how many batches were added.
+ *  - Missing batches are added; ones you deleted stay deleted unless `force` (the "restore" button).
+ *  - When the seed's version changes, batches nobody has edited are replaced by the new version, and an edited batch only
+ *    gains the links it was missing. Nothing else about an edited batch is ever touched. */
 export function applySeed(db, seed, { force = false, ensure }) {
   db.settings.deleted ??= {};
-  if (!force && db.settings.seedVersion === seed.version) return 0;
+  const versionChanged = db.settings.seedVersion !== seed.version;
+  if (!force && !versionChanged) return 0;
   let added = 0;
   for (const recipe of seed.batches) {
-    if (db.batches[recipe.id]) continue;
+    const existing = db.batches[recipe.id];
+    if (existing) {
+      if (versionChanged && isPristineSeed(existing)) db.batches[recipe.id] = hydrateBatch(seed, recipe, ensure);
+      else if (versionChanged && recipe.links?.length && !existing.links?.length) {
+        existing.links = [...recipe.links];
+        existing.role ??= recipe.role;
+      }
+      continue;
+    }
     if (!force && db.settings.deleted[recipe.id]) continue;
     db.batches[recipe.id] = hydrateBatch(seed, recipe, ensure);
     delete db.settings.deleted[recipe.id];

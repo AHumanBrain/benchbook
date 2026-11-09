@@ -1,6 +1,7 @@
 import { fmt } from './calc.js';
 import * as P from './plate.js';
-import { esc, db, persist, download, newId } from './shared.js';
+import { esc, db, persist, download, newId, hooks } from './shared.js';
+import { toast } from './toast.js';
 
 const root = () => document.getElementById('app');
 const plateOf = b => db.plates[b.plate.plateId] || null;
@@ -149,10 +150,12 @@ function readForm(b) {
 export const clicks = {
   'plate-flag': (el, b) => {
     const pl = plateOf(b);
-    if (!pl) { alert('Choose or create an index plate first.'); return 'none'; }
+    if (!pl) { toast('Choose or create an index plate first.', { kind: 'warn' }); return 'none'; }
     const w = el.dataset.well;
     if (pl.flags[w]) {
-      if (confirm(`${w} is flagged: "${pl.flags[w]}". Clear the flag?`)) delete pl.flags[w];
+      const reason = pl.flags[w];
+      delete pl.flags[w];
+      toast(`Cleared the flag on ${w} ("${reason}").`, { undo: () => { pl.flags[w] = reason; persist(); hooks.render(); } });
     } else {
       const reason = prompt(`Flag well ${w}. Why? (e.g. low volume)`);
       if (reason && reason.trim()) pl.flags[w] = reason.trim();
@@ -160,7 +163,7 @@ export const clicks = {
   },
   'plate-new': (el, b) => {
     const name = root().querySelector('#newPlateName').value.trim();
-    if (!name) { alert('Give the plate a name.'); return 'none'; }
+    if (!name) { toast('Give the plate a name.', { kind: 'warn' }); return 'none'; }
     readForm(b);
     const id = newId('p');
     db.plates[id] = { id, name, flags: {} };
@@ -170,7 +173,7 @@ export const clicks = {
     readForm(b);
     const id = root().querySelector('#qcSource').value;
     const set = b.qc.sets.find(s => s.id === id);
-    if (!set) { alert('Pick a QC set first (add one on the QC tab).'); return 'none'; }
+    if (!set) { toast('Pick a QC set first (add one on the QC tab).', { kind: 'warn' }); return 'none'; }
     setNames(b, set.rows.map(r => r.name));
     b.plate.qcSetId = set.id;
   },
@@ -184,10 +187,10 @@ export const clicks = {
   'plate-assign': (el, b) => {
     readForm(b);
     const pl = plateOf(b);
-    if (!pl) { alert('Choose or create an index plate first.'); return 'none'; }
-    if (!P.parseWell(b.plate.start)) { alert('Start well must look like A1 to H12.'); return 'none'; }
+    if (!pl) { toast('Choose or create an index plate first.', { kind: 'warn' }); return 'none'; }
+    if (!P.parseWell(b.plate.start)) { toast('Start well must look like A1 to H12.', { kind: 'warn' }); return 'none'; }
     const left = P.assignWells(b.plate, pl.flags, P.plateUses(db.batches, pl.id, b.id));
-    if (left) alert(`${left} sample(s) do not fit on the plate after skipping blocked wells.`);
+    if (left) toast(`${left} sample(s) do not fit on the plate after skipping blocked wells.`, { kind: 'warn' });
   },
   'plate-autopool': (el, b) => {
     readForm(b);

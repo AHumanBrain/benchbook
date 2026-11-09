@@ -1,6 +1,7 @@
 import { db, persist, esc, download, ensureBatch } from './shared.js';
 import { buildBackup, parseBackup, mergePlan, mergeBackup, summary, backupStatus, daysSince } from './backup.js';
 import * as folder from './folder.js';
+import { toast } from './toast.js';
 
 export function status() {
   const hasData = Object.keys(db.batches).length + Object.keys(db.protocols).length > 0;
@@ -71,7 +72,7 @@ export const clicks = {
     db.settings.lastExport = new Date().toISOString();
     persist();
   },
-  'bk-connect': async () => { try { await folder.connect(); } catch (e) { alert(`Could not use that folder: ${e.message}`); } },
+  'bk-connect': async () => { try { await folder.connect(); } catch (e) { toast(`Could not use that folder: ${e.message}`, { kind: 'error' }); } },
   'bk-reconnect': () => folder.reconnect(),
   'bk-save-now': () => folder.saveNow(),
   'bk-off': () => folder.disconnect(),
@@ -81,7 +82,7 @@ export const clicks = {
   },
   'bk-merge': async () => {
     const res = await folder.mergeFromFolder();
-    alert(`Added ${res.added} item(s) from the folder. Auto-save has resumed.`);
+    toast(`Added ${res.added} item(s) from the folder. Auto-save has resumed.`);
   },
 };
 
@@ -98,12 +99,12 @@ export const changes = {
       if (plan.clashBatches.length || plan.clashProtocols.length) {
         overwrite = confirm(`${plan.clashBatches.length} batch(es) and ${plan.clashProtocols.length} protocol(s) in the file also exist here.\n\nOK = replace them with the file's versions.\nCancel = keep the versions in this browser.`);
       }
-      if (!adding && !overwrite) { alert(`The file holds ${s.batches} batches and ${s.protocols} protocols; this browser already has all of them. Nothing changed.`); return 'none'; }
+      if (!adding && !overwrite) { toast(`The file holds ${s.batches} batches and ${s.protocols} protocols; this browser already has all of them. Nothing changed.`); el.value = ''; return 'none'; }
       const res = mergeBackup(db, backup, { overwrite });
       Object.values(db.batches).forEach(ensureBatch);
       persist();
-      alert(`Restored: ${res.added} added, ${res.overwritten} replaced, ${res.skipped} left as they were.`);
-    } catch (e) { alert(`Could not restore: ${e.message}`); }
+      toast(`Restored: ${res.added} added, ${res.overwritten} replaced, ${res.skipped} left as they were.`);
+    } catch (e) { toast(`Could not restore: ${e.message}`, { kind: 'error' }); }
     el.value = '';
   },
 };

@@ -6,6 +6,8 @@ import * as qcUI from './ui_qc.js';
 import * as plateUI from './ui_plate.js';
 import * as protoUI from './ui_protocols.js';
 import * as backupUI from './ui_backup.js';
+import * as compareUI from './ui_compare.js';
+import * as overviewUI from './ui_overview.js';
 import * as folder from './folder.js';
 
 const $app = document.getElementById('app');
@@ -33,7 +35,7 @@ function header(b, tab) {
   const items = flattenProtocol(b.protocol);
   const p = progress(b, items);
   const pct = p.total ? Math.round((100 * p.done) / p.total) : 0;
-  const tabs = [['bench', 'Bench'], ['plan', 'Plan'], ['notes', `Notes (${collectNotes(b, items).length})`], ['qc', 'QC'], ['plate', 'Plate & pools'], ['info', 'Batch info']]
+  const tabs = [['bench', 'Bench'], ['plan', 'Plan'], ['notes', `Notes (${collectNotes(b, items).length})`], ['qc', 'QC'], ['plate', 'Plate & pools'], ['graphs', 'Graphs'], ['info', 'Batch info']]
     .map(([id, label]) => `<a class="tab" href="#/b/${b.id}/${id}" ${id === tab ? 'aria-current="page"' : ''}>${label}</a>`).join('');
   return `<h1>${esc(b.name)}</h1>
     <div class="muted small">${esc(b.protocol.name)}${b.protocol.revision ? ` (rev ${b.protocol.revision})` : ''} · ${b.n} ${esc(b.protocol.unit_label)} · overage ${b.overagePct}%</div>
@@ -124,7 +126,9 @@ async function viewHome() {
 /* ---------- nav ---------- */
 function updateNav(parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)) {
   const inBatch = parts[0] === 'b' && batchOf(parts[1]);
-  $nav.innerHTML = `${backupUI.chip()}<a class="btn small" href="#/protocols">Protocols</a>${inBatch || parts.length ? '<a class="btn small" href="#/">All batches</a>' : ''}`;
+  const cur = inBatch || !parts.length ? 'batches' : parts[0] === 'protocol' ? 'protocols' : parts[0];
+  const link = (id, href, label) => `<a class="btn small ${cur === id ? 'on' : ''}" href="${href}">${label}</a>`;
+  $nav.innerHTML = `${backupUI.chip()}${link('batches', '#/', 'Batches')}${link('overview', '#/overview', 'Overview')}${link('compare', '#/compare', 'Compare')}${link('protocols', '#/protocols', 'Protocols')}`;
 }
 folder.subscribe(() => {
   updateNav();
@@ -140,8 +144,14 @@ async function render() {
     const tab = parts[2] || 'bench';
     document.body.className = 'bench';
     html = tab === 'notes' ? viewNotes(b) : tab === 'info' ? viewInfo(b) : tab === 'qc' ? qcUI.render(b, header)
-      : tab === 'plate' ? plateUI.render(b, header) : viewProtocol(b, tab === 'plan' ? 'plan' : 'bench');
+      : tab === 'plate' ? plateUI.render(b, header) : tab === 'graphs' ? overviewUI.renderGraphs(b, header) : viewProtocol(b, tab === 'plan' ? 'plan' : 'bench');
     document.title = `${b.name} · benchbook`;
+  } else if (parts[0] === 'overview') {
+    html = overviewUI.renderOverview();
+    document.title = 'Overview · benchbook';
+  } else if (parts[0] === 'compare') {
+    html = compareUI.renderCompare(parts[1], parts[2]);
+    document.title = 'Compare · benchbook';
   } else if (parts[0] === 'protocols') {
     protoUI.setBuiltins(await builtins());
     html = protoUI.renderList();
@@ -207,7 +217,7 @@ $app.addEventListener('click', async e => {
 $app.addEventListener('change', async e => {
   const el = e.target;
   const b = currentBatch();
-  const global = protoUI.changes[el.dataset.chg] || backupUI.changes[el.dataset.chg];
+  const global = protoUI.changes[el.dataset.chg] || backupUI.changes[el.dataset.chg] || compareUI.changes[el.dataset.chg] || overviewUI.changes[el.dataset.chg];
   if (global) { const r = await global(el, b, e); persist(); if (r !== 'none') render(); return; }
   if (el.dataset.chg === 'np-proto') {
     const ov = el.selectedOptions[0]?.dataset.ov;
@@ -258,6 +268,6 @@ $app.addEventListener('submit', async e => {
 });
 
 // Small hook for tests and debugging.
-window.benchbook = { get db() { return db; } };
+window.benchbook = { get db() { return db; }, persist };
 folder.init().then(() => updateNav());
 render();

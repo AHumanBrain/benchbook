@@ -7,6 +7,9 @@ A bench-side notebook for library prep and hybrid capture. It turns a spreadshee
 - **Notes**: attach a note to any step and tag it *observation*, *deviation*, *error* or *idea*. The Notes tab collects them, so lessons stop living in a spreadsheet's right-hand column.
 - **QC**: paste a NanoDrop export (copied from a spreadsheet), a Qubit CSV, or two columns of name and concentration. It reads concentration, unit, 260/280 and 260/230 (a blank Sample ID column is fine: rows are named from the `#` column, or paste your own names), converts units to ng/µL, and flags low concentration, odd ratios and duplicate names. Thresholds are editable and are generic starting points.
 - **Plate & pools**: lay libraries onto a 96-well UDI plate and group them into hyb pools. New batches fill the next free wells on the plate, skipping wells that other batches used and wells you flagged (low volume, contamination). Pooling is by mass only (equal ng per library). A pooling plan then gives the µL of each library for an equal-mass pool and says which library limits it when the volume is not enough. Downloads a plate map as CSV.
+- **Graphs** (a tab on every batch): one bar per library for any QC measurement (concentration, 260/280, 260/230), coloured by hyb pool, with flagged libraries in orange and the QC threshold drawn on it.
+- **Overview**: every library from every batch on one chart, so a drift between batches stands out. Dashed lines mark where the protocol changed between batches.
+- **Compare**: pick two batches (or follow "Compare with…" from a batch's Graphs tab) and see what differs: settings, every protocol change in plain words (a volume, a time, a cycle count, an added or removed step), QC summaries and the notes from each.
 - **Protocols**: copy a built-in protocol and edit it in the page (volumes, timings, steps, sections), with a live preview and plain-language checks before it saves. Every save raises the revision; batches keep the revision they started with.
 - **Backup**: a chip in the header says whether your data is safe. Auto-save to a folder you pick (Chrome and Edge on a computer), and export or restore everything as one file.
 - **Batch info**: run lineage (prep, hyb, capture, sequencing dates), thermocycler, and which batches were co-processed.
@@ -67,6 +70,5 @@ The tests check the master-mix arithmetic against the original workbook (for exa
 
 ## Not built yet
 
-- A diff of "what changed since the last batch" (revisions make this possible), and cross-batch yield trends
 - Offline use (service worker) and syncing across devices
 - Sequencing run metrics (NovaSeq InterOp) in a run dashboard

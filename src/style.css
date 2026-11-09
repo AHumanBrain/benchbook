@@ -147,3 +147,37 @@ input.bad { outline: 2px solid var(--bad); }
 .savebar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--card); border-top: 1px solid var(--line); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .planmode .check, .planmode .bench-only { display: none; }
 .planmode .item { grid-template-columns: 1fr; }
+
+/* graphs */
+.chartwrap { overflow-x: auto; }
+svg.chart { width: 100%; min-width: 640px; height: auto; display: block; }
+.chart text { font: 12px system-ui, sans-serif; fill: var(--ink); }
+.chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .xl { font-weight: 650; fill: var(--accent); }
+.chart a:hover .xl { text-decoration: underline; }
+.chart line.grid { stroke: var(--line); stroke-width: 1; }
+.chart .limit { stroke: var(--warn); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.chart .limit-label { fill: var(--warn); font-size: 11px; }
+.chart .band { fill: var(--accent-soft); opacity: .7; }
+.chart .divider { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 5; }
+.chart .dot { fill: var(--accent); fill-opacity: .55; }
+.chart .dot.flag { fill: var(--warn); fill-opacity: .9; }
+.chart .median { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.chart .col { fill: var(--accent); fill-opacity: .8; }
+.chart .col.flag { fill: var(--warn); fill-opacity: 1; }
+.sw-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); opacity: .6; vertical-align: -1px; }
+.sw-dot.flag { background: var(--warn); opacity: .9; }
+.sw-med { display: inline-block; width: 16px; height: 0; border-top: 2.5px solid var(--ink); vertical-align: 3px; }
+.sw-flag { display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: var(--warn); }
+
+/* compare */
+tr.same td { color: var(--muted); }
+tr.changed td { background: var(--warn-soft); font-weight: 600; }
+.diffgroup { margin: 8px 0; }
+.diff { padding: 3px 0 3px 12px; border-left: 3px solid var(--line); margin: 3px 0; }
+.diff.added { border-color: var(--accent); }
+.diff.removed { border-color: var(--bad); }
+.diff.changed { border-color: var(--warn); }
+.diff s { color: var(--muted); }
+#topnav a.btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.chart .limit-label { paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; }

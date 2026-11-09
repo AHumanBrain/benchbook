@@ -124,12 +124,25 @@ async function viewHome() {
   <p class="muted small" style="margin-top:18px">Everything stays in this browser (localStorage). Nothing is uploaded anywhere. <a href="#/backup">Back it up</a>.</p>`;
 }
 
+/* ---------- theme ---------- */
+const THEME_KEY = 'benchbook.theme';
+const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+const currentTheme = () => document.documentElement.dataset.theme || (systemDark() ? 'dark' : 'light');
+function toggleTheme() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem(THEME_KEY, next); } catch { /* the choice just lasts until the page closes */ }
+  updateNav();
+}
+$nav.addEventListener('click', e => { if (e.target.closest('[data-act=theme]')) toggleTheme(); });
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!document.documentElement.dataset.theme) updateNav(); });
+
 /* ---------- nav ---------- */
 function updateNav(parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean)) {
   const inBatch = parts[0] === 'b' && batchOf(parts[1]);
   const cur = inBatch || !parts.length ? 'batches' : parts[0] === 'protocol' ? 'protocols' : parts[0];
   const link = (id, href, label) => `<a class="btn small ${cur === id ? 'on' : ''}" href="${href}">${label}</a>`;
-  $nav.innerHTML = `${backupUI.chip()}${link('batches', '#/', 'Batches')}${link('overview', '#/overview', 'Overview')}${link('compare', '#/compare', 'Compare')}${link('protocols', '#/protocols', 'Protocols')}`;
+  $nav.innerHTML = `${backupUI.chip()}${link('batches', '#/', 'Batches')}${link('overview', '#/overview', 'Overview')}${link('compare', '#/compare', 'Compare')}${link('protocols', '#/protocols', 'Protocols')}<button class="btn small" data-act="theme" aria-label="Switch to ${currentTheme() === 'dark' ? 'light' : 'dark'} mode" title="Switch to ${currentTheme() === 'dark' ? 'light' : 'dark'} mode">${currentTheme() === 'dark' ? '☀ Light' : '☾ Dark'}</button>`;
 }
 folder.subscribe(() => {
   updateNav();

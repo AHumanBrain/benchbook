@@ -1,17 +1,27 @@
 :root {
+  color-scheme: light;
   --bg: #f6f7f5; --card: #ffffff; --ink: #1c2321; --muted: #5d6b66; --line: #dfe5e1;
   --accent: #0f766e; --accent-ink: #ffffff; --accent-soft: #e2f3f0;
   --warn: #b45309; --warn-soft: #fdf1dc; --bad: #b42318; --bad-soft: #fde8e6; --idea: #5b4bb7; --idea-soft: #ebe8fb;
   --done: #7a8a84;
   --radius: 12px;
 }
+/* Dark colours: the system setting, unless the person picked a theme with the header button. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #111715; --card: #19211e; --ink: #e8eeeb; --muted: #9db0a9; --line: #2a3632;
     --accent: #3cc3b4; --accent-ink: #06201c; --accent-soft: #15332f;
     --warn: #f0b45b; --warn-soft: #3a2c12; --bad: #ff8a80; --bad-soft: #3d1b18; --idea: #b6a9ff; --idea-soft: #28244a;
     --done: #7d8f88;
   }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+    --bg: #111715; --card: #19211e; --ink: #e8eeeb; --muted: #9db0a9; --line: #2a3632;
+    --accent: #3cc3b4; --accent-ink: #06201c; --accent-soft: #15332f;
+    --warn: #f0b45b; --warn-soft: #3a2c12; --bad: #ff8a80; --bad-soft: #3d1b18; --idea: #b6a9ff; --idea-soft: #28244a;
+    --done: #7d8f88;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }

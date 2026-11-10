@@ -19,14 +19,15 @@ const span = (dates, fallback) => {
 
 const batchLink = b => {
   const p = progress(b, flattenProtocol(b.protocol));
-  const state = p.total && p.done === p.total ? '✓' : `${p.done}/${p.total}`;
-  return `<a class="runlink" href="#/b/${esc(b.id)}/bench">${esc(b.name)} <span class="muted small">${state}</span></a>`;
+  const done = p.total > 0 && p.done === p.total;
+  const pct = p.total ? Math.round((100 * p.done) / p.total) : 0;
+  return `<a class="runlink ${done ? 'done' : ''}" style="--p:${pct}%" href="#/b/${esc(b.id)}/bench">${esc(b.name)} <span class="muted small">${done ? '✓' : `${p.done}/${p.total}`}</span></a>`;
 };
 
 export function renderBatchList() {
   const runs = runsOf(db.batches);
   if (!runs.length) return '<div class="empty">No batches yet. Start one below.</div>';
-  return runs.map(run => `<div class="card run"><div class="row spread"><h3>${esc(run.name)}</h3><span class="muted small">${esc(span(run.dates, run.batches[0].created))}</span></div>
+  return runs.map(run => `<div class="card run"><div class="row spread"><h3>${esc(run.name)}</h3><span class="when">${esc(span(run.dates, run.batches[0].created))}</span></div>
     <div class="runlinks">${run.batches.map(batchLink).join('')}</div></div>`).join('');
 }
 

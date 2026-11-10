@@ -4,6 +4,20 @@ import { isPristineSeed } from './seed.js';
 
 export const FORMAT = 'benchbook-backup';
 
+/** Ids end up in web addresses and attributes, so a file may only carry plain ones ("seed-b5-hyb", "bk3x9"). */
+export const isSafeId = id => typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/.test(id) && !(id in Object.prototype);
+
+/** Throws a readable Error unless a batch from a file is safe to keep: plain ids, numeric counts. */
+export function checkBatch(batch, id = batch?.id) {
+  const say = why => { throw new Error(`batch "${String(id).slice(0, 40)}" ${why}`); };
+  if (!batch || typeof batch !== 'object' || !batch.protocol || typeof batch.protocol !== 'object' || !batch.state || typeof batch.state !== 'object') say('is damaged');
+  if (!isSafeId(id) || batch.id !== id) say('has an unusable id (letters, digits, - _ . only)');
+  if (typeof batch.name !== 'string') say('has no name');
+  if (!Number.isFinite(batch.n) || batch.n < 1 || batch.n > 384) say('has a reaction count that is not a number from 1 to 384');
+  if (!Number.isFinite(batch.overagePct) || batch.overagePct < 0 || batch.overagePct > 50) say('has an overage that is not a number from 0 to 50');
+  if (batch.links != null && !(Array.isArray(batch.links) && batch.links.every(isSafeId))) say('has damaged links');
+}
+
 /** The backup's version of a batch should replace ours: we have none, or ours is an untouched import and theirs is not. */
 const backupWins = (local, fromFile) => !local || (isPristineSeed(local) && !isPristineSeed(fromFile));
 
@@ -30,8 +44,15 @@ export function parseBackup(text) {
     b[k] ??= {};
   }
   b.deleted ??= {};
-  for (const [id, batch] of Object.entries(b.batches)) {
-    if (!batch || !batch.protocol || !batch.state) throw new Error(`batch "${id}" is damaged`);
+  for (const k of ['batches', 'plates', 'protocols']) {
+    if (Array.isArray(b[k])) throw new Error(`the "${k}" section is damaged`);
+  }
+  for (const [id, batch] of Object.entries(b.batches)) checkBatch(batch, id);
+  for (const [id, plate] of Object.entries(b.plates)) {
+    if (!isSafeId(id) || !plate || plate.id !== id) throw new Error(`index plate "${id.slice(0, 40)}" is damaged or has an unusable id`);
+  }
+  for (const [id, p] of Object.entries(b.protocols)) {
+    if (!isSafeId(id) || !p || p.id !== id) throw new Error(`protocol "${id.slice(0, 40)}" is damaged or has an unusable id`);
   }
   return b;
 }

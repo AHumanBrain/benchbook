@@ -44,7 +44,7 @@ export function renderMix(step, b) {
     : t.mmRows.length ? `<tr class="total"><td>Total volume to prepare</td><td class="num">${fmt(t.mmPerRxn)}</td><td class="num">${fmt(t.mmTotal, 1)}</td></tr>` : '';
   const final = t.finalVol ? `<p class="hint">Final reaction volume: ${fmt(t.finalVol)} µL</p>` : '';
   return `<h3>${esc(step.title)}</h3>
-  <div class="tablewrap"><table><thead><tr><th>Component</th><th class="num">µL / rxn</th><th class="num">µL for ${b.n} (+${b.overagePct}%)</th></tr></thead>
+  <div class="tablewrap"><table><thead><tr><th>Component</th><th class="num">µL / rxn</th><th class="num">µL for ${Number(b.n)} (+${Number(b.overagePct)}%)</th></tr></thead>
   <tbody>${input}${rows}${dispense}${adds}</tbody></table></div>${final}`;
 }
 

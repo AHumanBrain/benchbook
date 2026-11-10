@@ -76,6 +76,14 @@ node scripts/stamp.mjs
 
 It adds a version to each script's URL in `index.html` and writes `build.json`. Without it, browsers may keep running a cached copy of the old code for up to ten minutes (that is how long GitHub Pages lets them). With it, a normal reload picks up the change, and a page left open shows a "newer version is available" message with a Reload button. A test fails if the stamp is out of date, so CI catches a forgotten run.
 
+### Safety of files you open
+
+A backup, a folder file or a batch someone sends you is treated as untrusted. Three layers, so one slip is not enough:
+1. **Checked on the way in** (`parseBackup`, `checkBatch`): ids may only be letters, digits and `- _ .`, counts must be numbers in range, otherwise the file is refused with a plain message.
+2. **Escaped on the way out**: every name, id and number written into a page goes through `esc()` or `Number()`.
+3. **A Content-Security-Policy** in `index.html` (written by `scripts/stamp.mjs`): only scripts from this site and three hash-listed inline scripts may run, so injected markup cannot execute. If you add an inline script, add it to the list in `stamp.mjs`.
+
+
 ## Tests
 
 ```bash

@@ -42,7 +42,7 @@ function frame(metric, thr, [lo, hi], W, m, ph) {
 function key(points) {
   const pools = [...new Set(points.map(p => p.pool).filter(Boolean))].sort((a, b) => a - b);
   const parts = [];
-  if (pools.length) parts.push('<span>Colour = hyb pool</span>', ...pools.map(p => `<span class="lg"><i style="background:${poolColor(p)}"></i>${p}</span>`));
+  if (pools.length) parts.push('<span>Colour = hyb pool</span>', ...pools.map(p => `<span class="lg"><i style="background:${poolColor(p)}"></i>${esc(p)}</span>`));
   if (pools.length && points.some(p => !p.pool)) parts.push('<span class="lg"><i style="background:var(--muted)"></i>no pool</span>');
   if (points.some(p => p.flagged)) parts.push('<span class="lg"><i class="sw-ring"></i>ring = outside the QC thresholds</span>');
   return parts.length ? `<div class="row small muted chartkey">${parts.join('')}</div>` : '';
@@ -67,10 +67,10 @@ function batchChart(rows, metric, thr) {
     });
     if (r.median != null) svg += `<line x1="${cx(i) - band * 0.32}" x2="${cx(i) + band * 0.32}" y1="${f.y(r.median)}" y2="${f.y(r.median)}" class="median"/>`;
     const name = r.name.length > 16 ? `${r.name.slice(0, 15)}…` : r.name;
-    svg += `<a href="#/b/${r.id}/graphs"><text x="${cx(i)}" y="${m.t + ph + 20}" text-anchor="middle" class="xl">${esc(name)}</text></a>
+    svg += `<a href="#/b/${esc(r.id)}/graphs"><text x="${cx(i)}" y="${m.t + ph + 20}" text-anchor="middle" class="xl">${esc(name)}</text></a>
       <text x="${cx(i)}" y="${m.t + ph + 36}" text-anchor="middle" class="axis">${esc(dateText(r.date))}</text>
       <text x="${cx(i)}" y="${m.t + ph + 52}" text-anchor="middle" class="axis">median ${r.median != null ? fmt(r.median, metric === 'conc' ? 0 : 2) : '–'}</text>
-      ${r.revision ? `<text x="${cx(i)}" y="${m.t + ph + 68}" text-anchor="middle" class="axis">rev ${r.revision}</text>` : ''}`;
+      ${r.revision ? `<text x="${cx(i)}" y="${m.t + ph + 68}" text-anchor="middle" class="axis">rev ${esc(r.revision)}</text>` : ''}`;
   });
   return `<div class="chartwrap">${svg}</svg></div>${key(rows.flatMap(r => r.points))}`;
 }
@@ -129,7 +129,7 @@ function libraryChart(points, metric, thr, sharedMax) {
   for (const g of groups) {
     if (!g.pool) continue;
     svg += `<line class="bracket" x1="${g.x0 - slot * 0.35}" x2="${g.x1 + slot * 0.35}" y1="${rowY}" y2="${rowY}" style="stroke:${poolColor(g.pool)}"/>
-      <text class="poolname" x="${(g.x0 + g.x1) / 2}" y="${rowY + 18}" text-anchor="middle">pool ${g.pool}</text>`;
+      <text class="poolname" x="${(g.x0 + g.x1) / 2}" y="${rowY + 18}" text-anchor="middle">pool ${esc(g.pool)}</text>`;
   }
   return `<div class="chartwrap">${svg}</svg></div>${key(points)}`;
 }
@@ -146,10 +146,10 @@ export function renderGraphs(b, header) {
   const prev = previousBatch(db.batches, b);
   return `${header(b, 'graphs')}
   <div class="card"><div class="row spread"><div class="row">
-      <label class="field">Measurement<select data-chg="gr-set">${sets.map(s => `<option value="${s.id}" ${s.id === setId ? 'selected' : ''}>${esc(s.label)} (${s.rows.length})</option>`).join('')}</select></label>
+      <label class="field">Measurement<select data-chg="gr-set">${sets.map(s => `<option value="${esc(s.id)}" ${s.id === setId ? 'selected' : ''}>${esc(s.label)} (${s.rows.length})</option>`).join('')}</select></label>
       <label class="field">Metric<select data-chg="ov-metric">${Object.entries(METRICS).map(([k, mm]) => `<option value="${k}" ${k === metric ? 'selected' : ''}>${esc(mm.label)}</option>`).join('')}</select></label>
       ${metric === 'conc' ? `<label class="row small" style="align-self:end;padding-bottom:10px"><input type="checkbox" data-chg="gr-scale" ${view.sameScale ? 'checked' : ''}> Same scale as the other batches</label>` : ''}</div>
-      ${prev ? `<a class="btn small" href="#/compare/${prev.id}/${b.id}">Compare with ${esc(prev.name)}</a>` : ''}</div>
+      ${prev ? `<a class="btn small" href="#/compare/${esc(prev.id)}/${esc(b.id)}">Compare with ${esc(prev.name)}</a>` : ''}</div>
     ${libraryChart(points, metric, thr, shared)}</div>`;
 }
 

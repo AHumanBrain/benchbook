@@ -1,7 +1,8 @@
 import { flattenProtocol, newBatch, progress, collectNotes, NOTE_TAGS } from './calc.js';
 import { renderItem, timerSeconds } from './render.js';
 
-import { db, persist, ensureBatch, esc, clock, download, hooks } from './shared.js';
+import { db, persist, ensureBatch, esc, clock, download, hooks, own, newId } from './shared.js';
+import { checkBatch, isSafeId } from './backup.js';
 import * as qcUI from './ui_qc.js';
 import * as plateUI from './ui_plate.js';
 import * as protoUI from './ui_protocols.js';
@@ -27,9 +28,9 @@ async function builtins() {
   return Promise.all(ids.map(loadBuiltin));
 }
 async function loadProtocol(id) {
-  return db.protocols[id] || loadBuiltin(id);
+  return own(db.protocols, id) || loadBuiltin(id);
 }
-const batchOf = id => db.batches[id];
+const batchOf = id => own(db.batches, id);
 const stateOf = (b, key) => (b.state[key] ??= { done: null, timer: null, notes: [] });
 
 
@@ -39,9 +40,9 @@ function header(b, tab) {
   const p = progress(b, items);
   const pct = p.total ? Math.round((100 * p.done) / p.total) : 0;
   const tabs = [['bench', 'Bench'], ['plan', 'Plan'], ['notes', `Notes (${collectNotes(b, items).length})`], ['qc', 'QC'], ['plate', 'Plate & pools'], ['graphs', 'Graphs'], ['info', 'Batch info']]
-    .map(([id, label]) => `<a class="tab" href="#/b/${b.id}/${id}" ${id === tab ? 'aria-current="page"' : ''}>${label}</a>`).join('');
+    .map(([id, label]) => `<a class="tab" href="#/b/${esc(b.id)}/${id}" ${id === tab ? 'aria-current="page"' : ''}>${label}</a>`).join('');
   return `<h1>${esc(b.name)}</h1>
-    <div class="muted small">${esc(b.protocol.name)}${b.protocol.revision ? ` (rev ${b.protocol.revision})` : ''} · ${b.n} ${esc(b.protocol.unit_label)} · overage ${b.overagePct}%</div>
+    <div class="muted small">${esc(b.protocol.name)}${b.protocol.revision ? ` (rev ${esc(b.protocol.revision)})` : ''} · ${Number(b.n)} ${esc(b.protocol.unit_label)} · overage ${Number(b.overagePct)}%</div>
  ${runsUI.headerLinks(b)}
     <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
     <div class="muted small">${p.done} of ${p.total} steps done</div>
@@ -53,7 +54,7 @@ function viewProtocol(b, tab) {
   const items = flattenProtocol(b.protocol);
   let html = header(b, tab) + runsUI.poolingCard(b);
   if (tab === 'plan') {
-    html += `<div class="row spread"><span class="muted small">All volumes for ${b.n} ${esc(b.protocol.unit_label)}. Print this page for a bench sheet.</span><button class="btn small" data-act="print">Print</button></div>`;
+    html += `<div class="row spread"><span class="muted small">All volumes for ${Number(b.n)} ${esc(b.protocol.unit_label)}. Print this page for a bench sheet.</span><button class="btn small" data-act="print">Print</button></div>`;
   }
   let lastSection = -1;
   let open = false;
@@ -89,8 +90,8 @@ function viewInfo(b) {
   return header(b, 'info') + `
   <div class="card"><h3>Batch</h3><div class="grid">
     <label class="field">Name<input type="text" data-field="name" value="${esc(b.name)}"></label>
-    <label class="field">${esc(b.protocol.unit_label)}<input type="number" min="1" max="384" data-field="n" value="${b.n}"></label>
-    <label class="field">Overage %<input type="number" min="0" max="50" step="1" data-field="overagePct" value="${b.overagePct}"></label>
+    <label class="field">${esc(b.protocol.unit_label)}<input type="number" min="1" max="384" data-field="n" value="${Number(b.n)}"></label>
+    <label class="field">Overage %<input type="number" min="0" max="50" step="1" data-field="overagePct" value="${Number(b.overagePct)}"></label>
   </div><p class="hint">Changing the count or overage updates every volume. Steps you have already ticked stay ticked.</p></div>
   <div class="card"><h3>Run lineage</h3><div class="timeline">
     ${f('prep', 'Library prep', 'date')}${f('hyb', 'Hyb', 'date')}${f('cap', 'Capture', 'date')}${f('seq', 'Sequencing', 'date')}
@@ -109,7 +110,7 @@ async function viewHome() {
   return `${nag}<h1>Your batches</h1><div class="batchlist">${list}</div>
   <h2>New batch</h2>
   <form class="card" data-act="new-batch"><div class="grid">
-    <label class="field">Protocol<select name="protocol" data-chg="np-proto">${protos.map(p => `<option value="${p.id}" data-ov="${p.default_overage_pct ?? 10}">${esc(p.name)}${p.custom ? ' (custom)' : ''}</option>`).join('')}</select></label>
+    <label class="field">Protocol<select name="protocol" data-chg="np-proto">${protos.map(p => `<option value="${esc(p.id)}" data-ov="${Number(p.default_overage_pct) || 10}">${esc(p.name)}${p.custom ? ' (custom)' : ''}</option>`).join('')}</select></label>
     <label class="field">Batch name<input type="text" name="name" placeholder="e.g. batch 7" required></label>
     <label class="field">Reactions<input type="number" name="n" min="1" max="384" value="24" required></label>
     <label class="field">Master-mix overage %<input type="number" name="overage" min="0" max="50" value="${protos[0]?.default_overage_pct ?? 10}" required></label>
@@ -187,7 +188,7 @@ async function render() {
     protoUI.setBuiltins(await builtins());
     html = protoUI.renderList();
     document.title = 'Protocols · benchbook';
-  } else if (parts[0] === 'protocol' && db.protocols[parts[1]]) {
+  } else if (parts[0] === 'protocol' && own(db.protocols, parts[1])) {
     protoUI.setBuiltins(await builtins());
     html = protoUI.renderEditor(parts[1]);
     document.title = 'Edit protocol · benchbook';
@@ -276,10 +277,11 @@ $app.addEventListener('change', async e => {
   } else if (el.dataset.act === 'import') {
     try {
       const imp = JSON.parse(await el.files[0].text());
-      if (!imp.protocol || !imp.state) throw new Error('not a benchbook batch');
-      imp.id = imp.id && !db.batches[imp.id] ? imp.id : `i${Date.now().toString(36)}`;
+      if (!imp || !imp.protocol || !imp.state) throw new Error('not a benchbook batch');
+      imp.id = isSafeId(imp.id) && !own(db.batches, imp.id) ? imp.id : newId('i');
+      checkBatch(imp);
       const snap = imp.plateSnapshot; delete imp.plateSnapshot;
-      if (snap && imp.plate?.plateId) db.plates[imp.plate.plateId] ??= snap;
+      if (snap && isSafeId(imp.plate?.plateId) && snap.id === imp.plate.plateId && !own(db.plates, snap.id)) db.plates[snap.id] = snap;
       db.batches[imp.id] = ensureBatch(imp); persist(); location.hash = `#/b/${imp.id}/bench`;
     } catch (err) { toast(`Could not import: ${err.message}`, { kind: 'error' }); }
   }
@@ -295,7 +297,8 @@ $app.addEventListener('submit', async e => {
   if (ext) { const b = currentBatch(); if (b) { const r = await ext(form, data, b); persist(); if (r !== 'none') render(); } return; }
   if (form.dataset.act === 'new-batch') {
     const protocol = await loadProtocol(data.protocol);
-    const b = newBatch(protocol, { name: data.name.trim(), n: Number(data.n), overagePct: Number(data.overage) });
+    const n = Math.min(384, Math.max(1, Math.round(Number(data.n)) || 1)), overagePct = Math.min(50, Math.max(0, Number(data.overage) || 0));
+    const b = newBatch(protocol, { name: data.name.trim(), n, overagePct });
     db.batches[b.id] = ensureBatch(b); persist(); location.hash = `#/b/${b.id}/bench`;
   } else if (form.dataset.act === 'note-add') {
     const b = currentBatch();

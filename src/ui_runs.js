@@ -3,20 +3,20 @@ import { poolPlan } from './plate.js';
 import { runsOf, roleOf, linksOf, link, unlink } from './runs.js';
 import { planNextBatch, planHybFromPrep, bumpName, hybName, todayLocal, wellRanges } from './nextbatch.js';
 import { batchDate } from './overview.js';
-import { db, persist, esc, clock, newId, ensureBatch, hooks } from './shared.js';
+import { db, persist, esc, clock, newId, ensureBatch, hooks, own } from './shared.js';
 import { toast } from './toast.js';
 
 const ROLE = { prep: 'library prep', hyb: 'hyb & capture' };
-const rev = p => (p.revision ? ` rev ${p.revision}` : '');
+const rev = p => (p.revision ? ` rev ${esc(p.revision)}` : '');
 const cap = t => String(t).charAt(0).toUpperCase() + String(t).slice(1);
 
 /* ---------- the batch list, grouped into runs ---------- */
 function summary(b) {
   const p = progress(b, flattenProtocol(b.protocol));
-  return `${esc(b.protocol.name)}${rev(b.protocol)} · ${b.n} ${esc(b.protocol.unit_label)} · ${p.done}/${p.total} steps${b.seed ? ' · <span class="chip">from workbook</span>' : ''}`;
+  return `${esc(b.protocol.name)}${rev(b.protocol)} · ${esc(b.n)} ${esc(b.protocol.unit_label)} · ${p.done}/${p.total} steps${b.seed ? ' · <span class="chip">from workbook</span>' : ''}`;
 }
 
-const buttons = b => `<span class="row btns"><a class="btn small" href="#/next/${b.id}" title="Start the next batch from this one">Next batch</a><a class="btn small" href="#/b/${b.id}/bench">Open</a></span>`;
+const buttons = b => `<span class="row btns"><a class="btn small" href="#/next/${esc(b.id)}" title="Start the next batch from this one">Next batch</a><a class="btn small" href="#/b/${esc(b.id)}/bench">Open</a></span>`;
 
 function stageBar(dates) {
   const pill = (label, d) => `<span class="pill ${d ? 'on' : ''}">${label}<b>${d ? esc(clock(d)) : '–'}</b></span>`;
@@ -29,10 +29,10 @@ export function renderBatchList() {
   return runs.map(run => {
     if (run.batches.length === 1) {
       const b = run.batches[0];
-      return `<div class="card"><div><a class="title" href="#/b/${b.id}/bench">${esc(b.name)}</a><div class="muted small">${summary(b)} · ${clock(b.created)}</div></div>${buttons(b)}</div>`;
+      return `<div class="card"><div><a class="title" href="#/b/${esc(b.id)}/bench">${esc(b.name)}</a><div class="muted small">${summary(b)} · ${clock(b.created)}</div></div>${buttons(b)}</div>`;
     }
     return `<div class="card run"><div class="row spread"><h3>${esc(run.name)}</h3>${stageBar(run.dates)}</div>
-      ${run.batches.map(b => `<div class="runrow"><span class="chip">${ROLE[roleOf(b)]}</span><span class="grow"><a class="title" href="#/b/${b.id}/bench">${esc(b.name)}</a>
+      ${run.batches.map(b => `<div class="runrow"><span class="chip">${ROLE[roleOf(b)]}</span><span class="grow"><a class="title" href="#/b/${esc(b.id)}/bench">${esc(b.name)}</a>
         <span class="muted small"> · ${summary(b)}</span></span>${buttons(b)}</div>`).join('')}</div>`;
   }).join('');
 }
@@ -69,17 +69,17 @@ function previewHtml(from, v) {
 
 export function renderNext(id) {
   document.body.className = 'bench';
-  const from = db.batches[id];
+  const from = own(db.batches, id);
   if (!from) return '<h1>Next batch</h1><div class="empty">That batch no longer exists.</div>';
   const cands = protocolCandidates(from);
   const v = { name: bumpName(from.name, Object.values(db.batches).map(b => b.name)), n: from.n, overage: from.overagePct, proto: 0 };
-  return `<a href="#/b/${from.id}/info">← ${esc(from.name)}</a>
+  return `<a href="#/b/${esc(from.id)}/info">← ${esc(from.name)}</a>
   <h1>Start the next batch</h1>
   <p class="muted">Like <b>${esc(from.name)}</b>: same protocol, overage and thermocycler${roleOf(from) === 'prep' ? ', and the new libraries go on the next free index wells' : ''}. Everything else starts fresh.</p>
-  <form class="card" data-act="rn-next" data-from="${from.id}">
+  <form class="card" data-act="rn-next" data-from="${esc(from.id)}">
     <div class="grid">
       <label class="field">Batch name<input type="text" name="name" data-chg="rn-field" value="${esc(v.name)}" required></label>
-      <label class="field">${esc(cap(from.protocol.unit_label))}<input type="number" name="n" data-chg="rn-field" min="1" max="384" value="${v.n}" required></label>
+      <label class="field">${esc(cap(from.protocol.unit_label))}<input type="number" name="n" data-chg="rn-field" min="1" max="384" value="${esc(v.n)}" required></label>
       <label class="field">Master-mix overage %<input type="number" name="overage" data-chg="rn-field" min="0" max="50" value="${v.overage}" required></label>
       ${cands.length > 1 ? `<label class="field">Protocol<select name="protocol" data-chg="rn-field">${cands.map((c, i) => `<option value="${i}">${esc(c.label)}</option>`).join('')}</select></label>` : ''}
     </div>
@@ -98,7 +98,7 @@ function readForm(form) {
 export function headerLinks(b) {
   const links = linksOf(db.batches, b);
   if (!links.length) return '';
-  return `<div class="muted small">Linked: ${links.map(l => `<a href="#/b/${l.id}/bench">${esc(l.name)}</a> <span class="chip">${ROLE[roleOf(l)]}</span>`).join(' ')}</div>`;
+  return `<div class="muted small">Linked: ${links.map(l => `<a href="#/b/${esc(l.id)}/bench">${esc(l.name)}</a> <span class="chip">${ROLE[roleOf(l)]}</span>`).join(' ')}</div>`;
 }
 
 export function infoCards(b) {
@@ -108,13 +108,13 @@ export function infoCards(b) {
   const pools = new Set((b.plate?.samples || []).map(s => s.pool).filter(Boolean)).size;
   const canMakeHyb = role === 'prep' && !links.some(l => roleOf(l) === 'hyb');
   return `<div class="card"><h3>Linked batches</h3>
-    ${links.length ? links.map(l => `<div class="row spread" style="margin:6px 0"><span><span class="chip">${ROLE[roleOf(l)]}</span> <a href="#/b/${l.id}/bench">${esc(l.name)}</a></span>
-      <button class="btn small" data-act="rn-unlink" data-id="${l.id}">Unlink</button></div>`).join('') : '<p class="muted small">None yet. A library prep and the hyb and capture that follows it belong together.</p>'}
-    ${others.length ? `<div class="row" style="margin-top:8px"><select id="rn-pick" aria-label="Batch to link">${others.map(x => `<option value="${x.id}">${esc(x.name)} (${ROLE[roleOf(x)]})</option>`).join('')}</select><button class="btn small" data-act="rn-link">Link</button></div>` : ''}
+    ${links.length ? links.map(l => `<div class="row spread" style="margin:6px 0"><span><span class="chip">${ROLE[roleOf(l)]}</span> <a href="#/b/${esc(l.id)}/bench">${esc(l.name)}</a></span>
+      <button class="btn small" data-act="rn-unlink" data-id="${esc(l.id)}">Unlink</button></div>`).join('') : '<p class="muted small">None yet. A library prep and the hyb and capture that follows it belong together.</p>'}
+    ${others.length ? `<div class="row" style="margin-top:8px"><select id="rn-pick" aria-label="Batch to link">${others.map(x => `<option value="${esc(x.id)}">${esc(x.name)} (${ROLE[roleOf(x)]})</option>`).join('')}</select><button class="btn small" data-act="rn-link">Link</button></div>` : ''}
     ${canMakeHyb ? `<div style="margin-top:12px"><button class="btn primary" data-act="rn-hyb">Create the hyb &amp; capture batch from this prep</button>
       <p class="hint">${pools ? `One hyb per pool (${pools}), with the pooling volumes on its Bench tab.` : 'Group the libraries into pools on the Plate &amp; pools tab first.'}</p></div>` : ''}</div>
   <div class="card row spread"><div><h3>Next batch</h3><span class="muted small">Copies the protocol, overage and thermocycler${role === 'prep' ? ' and puts the new libraries on the next free index wells' : ''}.</span></div>
-    <a class="btn primary" href="#/next/${b.id}">Start the next batch from this one</a></div>`;
+    <a class="btn primary" href="#/next/${esc(b.id)}">Start the next batch from this one</a></div>`;
 }
 
 /** On a hyb batch: what to pool, from the linked prep's pooling plan. */
@@ -125,11 +125,11 @@ export function poolingCard(b) {
   const body = preps.map(prep => {
     const set = prep.qc.sets.find(s => s.id === prep.plate.qcSetId);
     const plan = poolPlan(prep.plate.samples, set?.rows, { targetNg: prep.plate.targetNg, availUl: prep.plate.availUl });
-    if (!plan.length) return `<p class="hint"><b>${esc(prep.name)}</b>: no pools yet. <a href="#/b/${prep.id}/plate">Group the libraries into pools</a> to see the volumes here.</p>`;
-    const rows = plan.map(p => `<tr><td><b>${p.pool}</b></td><td>${p.rows.map(r => `<span class="chip">${esc(r.name)} · ${r.ul != null ? `${fmt(r.ul, 2)} µL` : '?'}</span>`).join(' ')}</td>
+    if (!plan.length) return `<p class="hint"><b>${esc(prep.name)}</b>: no pools yet. <a href="#/b/${esc(prep.id)}/plate">Group the libraries into pools</a> to see the volumes here.</p>`;
+    const rows = plan.map(p => `<tr><td><b>${esc(p.pool)}</b></td><td>${p.rows.map(r => `<span class="chip">${esc(r.name)} · ${r.ul != null ? `${fmt(r.ul, 2)} µL` : '?'}</span>`).join(' ')}</td>
       <td class="num">${fmt(p.totalUl, 1)} µL</td><td class="num ${p.limitedBy ? 'flag' : ''}">${fmt(p.totalNg, 0)} ng</td></tr>`).join('');
     return `<p class="hint" style="margin-top:0"><b>${esc(prep.name)}</b>: ${prep.plate.targetNg} ng per hyb, equal mass${set ? `, from "${esc(set.label)}"` : ''}.
-      <a href="#/b/${prep.id}/plate">Plate &amp; pools</a></p>
+      <a href="#/b/${esc(prep.id)}/plate">Plate &amp; pools</a></p>
       <div class="tablewrap"><table><thead><tr><th>Pool</th><th>Libraries and volume to take</th><th class="num">Total</th><th class="num">Mass</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join('');
   return `<details class="card poolcard" open><summary><b>Pooling plan</b> <span class="muted small">from the linked prep</span></summary>${body}</details>`;
@@ -138,13 +138,13 @@ export function poolingCard(b) {
 /* ---------- actions ---------- */
 export const clicks = {
   'rn-link': (el, b) => {
-    const other = db.batches[document.getElementById('rn-pick')?.value];
+    const other = own(db.batches, document.getElementById('rn-pick')?.value);
     if (!b || !other) return 'none';
     link(b, other);
     toast(`Linked to "${other.name}".`);
   },
   'rn-unlink': (el, b) => {
-    const other = db.batches[el.dataset.id];
+    const other = own(db.batches, el.dataset.id);
     if (!b || !other) return 'none';
     unlink(b, other);
     toast(`Unlinked "${other.name}".`, { undo: () => { link(b, other); persist(); hooks.render(); } });
@@ -172,7 +172,7 @@ export const clicks = {
 export const changes = {
   'rn-field': el => {
     const form = el.closest('form');
-    const from = db.batches[form.dataset.from];
+    const from = own(db.batches, form.dataset.from);
     const box = document.getElementById('nx-preview');
     if (from && box) box.innerHTML = previewHtml(from, readForm(form));
     return 'none';
@@ -181,7 +181,7 @@ export const changes = {
 
 export const submits = {
   'rn-next': (form) => {
-    const from = db.batches[form.dataset.from];
+    const from = own(db.batches, form.dataset.from);
     if (!from) return 'none';
     const v = readForm(form);
     const cands = protocolCandidates(from);

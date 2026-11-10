@@ -1,11 +1,17 @@
 // State and helpers shared by the app and its tab views.
 import { DEFAULT_THRESHOLDS } from './qc.js';
 import { defaultPlate } from './plate.js';
+import { toast } from './toast.js';
 
 const KEY = 'benchbook.v1';
 
 function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+  let raw = null;
+  try { raw = localStorage.getItem(KEY); return JSON.parse(raw) || {}; } catch {
+    // Unreadable save: keep the text aside so the next save cannot silently replace it with an empty database.
+    if (raw) { try { localStorage.setItem(`${KEY}.unreadable-${Date.now()}`, raw); } catch { /* storage is full */ } }
+    return {};
+  }
 }
 
 /** The one database object: { batches, plates, settings }. Mutate it, then call persist(). */
@@ -20,8 +26,12 @@ db.settings.qc = { ...DEFAULT_THRESHOLDS, ...db.settings.qc };
 /** Other modules (the backup folder) register here to be told after every save. */
 export const hooks = { afterPersist: null, render: () => {}, loadProtocol: async () => null };
 
+let warnedSave = false;
 export function persist() {
-  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { /* private mode: stays in memory */ }
+  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {
+    // Private window or full storage: the work stays in memory until the tab closes. Say so once.
+    if (!warnedSave) { warnedSave = true; toast('This browser could not save your changes (storage is full or blocked). Export a backup from the Backup page before closing the tab.', { kind: 'error', ms: 20000 }); }
+  }
   try { hooks.afterPersist?.(); } catch { /* a backup problem must never block saving */ }
 }
 
@@ -45,6 +55,8 @@ export const clock = iso => {
   if (day) return new Date(+day[1], +day[2] - 1, +day[3]).toLocaleDateString([], { month: 'short', day: 'numeric' });
   return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
+/** A value from a lookup table by a name that may come from a web address: never an inherited one like "constructor". */
+export const own = (table, key) => (Object.hasOwn(table, key) ? table[key] : undefined);
 export const newId = prefix => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
 export function download(name, text, type = 'application/json') {

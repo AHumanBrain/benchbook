@@ -4,14 +4,15 @@ import {
   STEP_TYPES, TYPE_LABEL, FIELDS, ROW_FIELDS, getPath, setPath, clone, makeDefault, parseDuration, durationText,
   blankProtocol, duplicateProtocol, validateProtocol, normalizeProtocol,
 } from './protocol_edit.js';
-import { db, persist, esc, download, hooks } from './shared.js';
+import { db, persist, esc, download, hooks, own } from './shared.js';
+import { isSafeId } from './backup.js';
 import { toast } from './toast.js';
 
 let builtins = {};                 // id -> shipped protocol (read-only)
 let draft = null;                  // { id, p, dirty, errors, flash } the protocol being edited
 export const setBuiltins = list => { builtins = Object.fromEntries(list.map(p => [p.id, p])); };
 export const takenIds = () => new Set([...Object.keys(builtins), ...Object.keys(db.protocols)]);
-const sourceOf = id => db.protocols[id] || builtins[id];
+const sourceOf = id => own(db.protocols, id) || own(builtins, id);
 
 window.addEventListener('beforeunload', e => { if (draft?.dirty) { e.preventDefault(); e.returnValue = ''; } });
 
@@ -24,13 +25,13 @@ function count(p) {
 export function renderList() {
   document.body.className = 'bench';
   const card = (p, custom) => `<div class="card"><div class="row spread"><div>
-      <h3>${esc(p.name)} ${custom ? `<span class="chip">custom · rev ${p.revision || 1}</span>` : '<span class="chip">built in</span>'}</h3>
+      <h3>${esc(p.name)} ${custom ? `<span class="chip">custom · rev ${esc(p.revision || 1)}</span>` : '<span class="chip">built in</span>'}</h3>
       <div class="muted small">${count(p)} · ${esc(p.unit_label)}${p.based_on ? ` · based on ${esc(builtins[p.based_on]?.name || p.based_on)}` : ''}</div>
       ${p.description ? `<p class="hint">${esc(p.description)}</p>` : ''}</div>
-    <div class="row">${custom ? `<a class="btn small primary" href="#/protocol/${p.id}">Edit</a>` : ''}
-      <button class="btn small" data-act="pe-dup-proto" data-id="${p.id}">${custom ? 'Duplicate' : 'Copy to edit'}</button>
-      <button class="btn small" data-act="pe-export" data-id="${p.id}">Export</button>
-      ${custom ? `<button class="btn small danger" data-act="pe-delete" data-id="${p.id}">Delete</button>` : ''}</div></div></div>`;
+    <div class="row">${custom ? `<a class="btn small primary" href="#/protocol/${esc(p.id)}">Edit</a>` : ''}
+      <button class="btn small" data-act="pe-dup-proto" data-id="${esc(p.id)}">${custom ? 'Duplicate' : 'Copy to edit'}</button>
+      <button class="btn small" data-act="pe-export" data-id="${esc(p.id)}">Export</button>
+      ${custom ? `<button class="btn small danger" data-act="pe-delete" data-id="${esc(p.id)}">Delete</button>` : ''}</div></div></div>`;
   const custom = Object.values(db.protocols).sort((a, b) => a.name.localeCompare(b.name));
   return `<h1>Protocols</h1>
   <p class="muted">Built-in protocols are read-only. Copy one to change volumes, timings or steps. Batches you already started keep the version they started with.</p>
@@ -128,7 +129,7 @@ export function renderEditor(id) {
   if (!draft || draft.id !== id) draft = { id, p: clone(db.protocols[id]), dirty: false, errors: [], flash: '' };
   const p = draft.p;
   const errors = draft.errors.length ? `<div class="card"><b>Fix these before saving:</b>${draft.errors.map(e => `<div class="note error">${esc(e)}</div>`).join('')}</div>` : '';
-  return `<div class="row spread"><div><a href="#/protocols">← Protocols</a><h1>${esc(p.name || 'Untitled')} <span class="chip">rev ${p.revision || 1}</span></h1></div></div>
+  return `<div class="row spread"><div><a href="#/protocols">← Protocols</a><h1>${esc(p.name || 'Untitled')} <span class="chip">rev ${esc(p.revision || 1)}</span></h1></div></div>
   ${errors}
   <div class="card"><h3>Protocol</h3><div class="grid">
     <label class="field">Name${input('name', 'text', p.name)}</label>
@@ -170,7 +171,7 @@ export const clicks = {
     return 'none';
   },
   'pe-delete': el => {
-    const p = db.protocols[el.dataset.id];
+    const p = own(db.protocols, el.dataset.id);
     delete db.protocols[p.id];
     db.settings.deleted[p.id] = new Date().toISOString();
     if (draft?.id === p.id) draft = null;
@@ -257,7 +258,7 @@ export const changes = {
       if (errs.length) { toast(`That protocol has problems:\n${errs.slice(0, 8).join('\n')}${errs.length > 8 ? '\n…' : ''}`, { kind: 'error' }); return 'none'; }
       const ids = takenIds();
       const imported = { ...normalizeProtocol(p), custom: true, revision: 1 };
-      if (ids.has(imported.id)) imported.id = duplicateProtocol(imported, ids).id;
+      if (!isSafeId(imported.id) || ids.has(imported.id)) imported.id = duplicateProtocol(imported, ids).id;
       newCustom(imported);
     } catch (e) { toast(`Could not import: ${e.message}`, { kind: 'error' }); }
     el.value = '';

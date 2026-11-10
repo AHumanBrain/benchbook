@@ -2,7 +2,7 @@ import { diffBatches } from './diff.js';
 import { summarize } from './qc.js';
 import { fmt } from './calc.js';
 import { batchDate } from './overview.js';
-import { db, esc } from './shared.js';
+import { db, esc, own } from './shared.js';
 
 const byDate = () => Object.values(db.batches).sort((a, b) => batchDate(a).localeCompare(batchDate(b)));
 const setLine = s => (s ? `${s.n} · median ${fmt(s.median, 1)} · ${fmt(s.min, 1)}–${fmt(s.max, 1)} · ${s.flagged} flagged` : '<span class="muted">not measured</span>');
@@ -11,9 +11,9 @@ export function renderCompare(aId, bId) {
   document.body.className = 'bench';
   const list = byDate();
   if (list.length < 2) return '<h1>Compare batches</h1><div class="empty">You need at least two batches to compare.</div>';
-  const a = db.batches[aId] || list[list.length - 2];
-  const b = db.batches[bId] || list[list.length - 1];
-  const opts = id => list.map(x => `<option value="${x.id}" ${x.id === id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+  const a = own(db.batches, aId) || list[list.length - 2];
+  const b = own(db.batches, bId) || list[list.length - 1];
+  const opts = id => list.map(x => `<option value="${esc(x.id)}" ${x.id === id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   const d = diffBatches(a, b, { summarizeSet: rows => summarize(rows, db.settings.qc) });
   const changed = d.settings.filter(r => r.changed);
   const grouped = new Map();

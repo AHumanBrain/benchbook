@@ -33,7 +33,7 @@ function gridHtml(b) {
     }
   }
   const pools = [...new Set(b.plate.samples.map(s => s.pool).filter(Boolean))].sort((a, c) => a - c);
-  const legend = pools.map(p => `<span class="lg"><i style="background:${poolColor(p)}"></i>pool ${p}</span>`).join('');
+  const legend = pools.map(p => `<span class="lg"><i style="background:${poolColor(p)}"></i>pool ${esc(p)}</span>`).join('');
   return `<div class="tablewrap">${html}</div></div>
     <div class="row small muted" style="margin-top:6px">${legend}<span class="lg"><i class="sw flagged"></i>flagged well</span><span class="lg"><i class="sw used"></i>used by another batch</span></div>
     <p class="hint">Click any well to flag it (low volume, contamination…) or to clear a flag. Flags belong to the plate and carry across batches.</p>`;
@@ -52,14 +52,14 @@ function planHtml(b) {
   const plan = P.poolPlan(b.plate.samples, rows, { targetNg: b.plate.targetNg, availUl: b.plate.availUl });
   if (!plan.length) return '<div class="empty">Pools appear here once samples are in pools.</div>';
   return plan.map(p => {
-    const lines = p.rows.map(r => `<tr><td>${esc(r.name)}</td><td>${r.well || ''}</td><td class="num">${r.conc != null ? fmt(r.conc, 1) : '–'}</td>
+    const lines = p.rows.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.well || '')}</td><td class="num">${r.conc != null ? fmt(r.conc, 1) : '–'}</td>
       <td class="num">${r.ng != null ? fmt(r.ng, 0) : ''}</td>
       <td class="num ${r.ul != null && r.ul > b.plate.availUl - 1e-9 ? 'flag' : ''}"><b>${r.ul != null ? fmt(r.ul, 2) : '–'}</b></td></tr>`).join('');
     const notes = [
       p.limitedBy ? `<p class="hint">⚠ Short of the target by ${fmt(p.shortfall, 0)} ng. <b>${esc(p.limitedBy)}</b> is the weakest: only ${b.plate.availUl} µL available at its concentration, so every library is capped at ${fmt(p.each, 0)} ng to keep the pool equal-mass.</p>` : '',
       p.missing.length ? `<p class="hint">⚠ No concentration for ${esc(p.missing.join(', '))}: add a measurement for it.</p>` : '',
     ].join('');
-    return `<div class="card"><h3 style="color:${poolColor(p.pool)}">Pool ${p.pool} <span class="muted small">· ${p.k} ${p.k === 1 ? 'library' : 'libraries'}</span></h3>
+    return `<div class="card"><h3 style="color:${poolColor(p.pool)}">Pool ${esc(p.pool)} <span class="muted small">· ${esc(p.k)} ${p.k === 1 ? 'library' : 'libraries'}</span></h3>
       <div class="tablewrap"><table><thead><tr><th>Library</th><th>Well</th><th class="num">ng/µL</th><th class="num">ng taken</th><th class="num">µL to take</th></tr></thead><tbody>${lines}
       <tr class="total"><td colspan="3">Pool total</td><td class="num">${fmt(p.totalNg, 0)} ng</td><td class="num">${fmt(p.totalUl, 1)} µL</td></tr></tbody></table></div>${notes}</div>`;
   }).join('');
@@ -75,10 +75,10 @@ function refreshBlocks(b) {
 /* ---------- the tab ---------- */
 export function render(b, header) {
   const p = b.plate;
-  const sets = b.qc.sets.map(s => `<option value="${s.id}" ${s.id === p.qcSetId ? 'selected' : ''}>${esc(s.label)} (${s.rows.length})</option>`).join('');
-  const plates = Object.values(db.plates).map(x => `<option value="${x.id}" ${x.id === p.plateId ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+  const sets = b.qc.sets.map(s => `<option value="${esc(s.id)}" ${s.id === p.qcSetId ? 'selected' : ''}>${esc(s.label)} (${s.rows.length})</option>`).join('');
+  const plates = Object.values(db.plates).map(x => `<option value="${esc(x.id)}" ${x.id === p.plateId ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   const f = (k, label, type, extra = '') => `<label class="field">${label}<input type="${type}" data-chg="plate-field" data-pfield="${k}" value="${esc(p[k])}" ${extra}></label>`;
-  const table = p.samples.map((s, i) => `<tr><td>${esc(s.name)}</td><td>${s.well || '<span class="muted">–</span>'}</td>
+  const table = p.samples.map((s, i) => `<tr><td>${esc(s.name)}</td><td>${s.well ? esc(s.well) : '<span class="muted">–</span>'}</td>
     <td><select data-chg="plate-pool" data-i="${i}" aria-label="Pool for ${esc(s.name)}"><option value="">–</option>${Array.from({ length: Math.max(p.samples.length, 1) }, (_, k) => `<option ${s.pool === k + 1 ? 'selected' : ''}>${k + 1}</option>`).join('')}</select></td></tr>`).join('');
   return `${header(b, 'plate')}
   <div class="card"><h3>1. Samples</h3>
@@ -88,7 +88,7 @@ export function render(b, header) {
       <select id="qcSource" aria-label="QC set to take names from"><option value="">QC set…</option>${sets}</select>
       <button class="btn small" data-act="plate-from-qc">Load names from QC set</button>
       <span class="muted small">or</span>
-      <input type="text" id="genPrefix" value="S" style="width:4.5em" aria-label="Name prefix"><input type="number" id="genCount" value="${b.n}" min="1" max="96" style="width:5.5em" aria-label="How many">
+      <input type="text" id="genPrefix" value="S" style="width:4.5em" aria-label="Name prefix"><input type="number" id="genCount" value="${Number(b.n)}" min="1" max="96" style="width:5.5em" aria-label="How many">
       <button class="btn small" data-act="plate-gen">Generate names</button></div></div>
   <div class="card"><h3>2. Index plate</h3>
     <div class="grid">

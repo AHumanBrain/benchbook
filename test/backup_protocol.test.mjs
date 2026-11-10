@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildBackup, parseBackup, mergeBackup, mergePlan, canAutosave, backupStatus, daysSince } from '../src/backup.js';
+import { buildBackup, parseBackup, mergeBackup, mergePlan, canAutosave, backupStatus, daysSince, isSafeId } from '../src/backup.js';
 import {
   getPath, setPath, parseDuration, durationText, makeDefault, blankProtocol, duplicateProtocol, newProtocolId,
   validateProtocol, normalizeProtocol, clone,
@@ -11,7 +11,7 @@ import { flattenProtocol } from '../src/calc.js';
 const load = id => JSON.parse(readFileSync(new URL(`../protocols/${id}.json`, import.meta.url)));
 const kapa = load('kapa_rna_hyperprep');
 const xgen = load('xgen_hyb_wash_v3');
-const batch = (id, name) => ({ id, name, protocol: kapa, state: {}, plate: { samples: [] } });
+const batch = (id, name) => ({ id, name, n: 8, overagePct: 10, protocol: kapa, state: {}, plate: { samples: [] } });
 const mkdb = () => ({ batches: {}, plates: {}, protocols: {}, settings: { deleted: {}, qc: { concMin: 5 } } });
 
 /* ---------- backup ---------- */
@@ -180,4 +180,33 @@ test('duplicating gives a new, unique id and tracks where it came from', () => {
   assert.notEqual(d.id, kapa.id);
   assert.equal(newProtocolId('A b', new Set(['a_b'])), 'a_b_2');
   assert.notEqual(d.sections, kapa.sections); // deep copy
+});
+
+/* ---------- a backup file is untrusted input ---------- */
+const file = (extra = {}) => JSON.stringify({ format: 'benchbook-backup', batches: { a: batch('a', 'A') }, plates: {}, protocols: {}, ...extra });
+const rejects = (text, re) => assert.throws(() => parseBackup(text), re);
+
+test('a backup with ids that could carry markup is refused', () => {
+  const evil = '"><img src=x onerror=alert(1)>';
+  rejects(file({ batches: { [evil]: batch(evil, 'x') } }), /unusable id/);
+  rejects(file({ batches: { a: { ...batch('a', 'A'), id: 'b' } } }), /unusable id/); // key and id disagree
+  rejects(file({ batches: { a: { ...batch('a', 'A'), links: [evil] } } }), /damaged links/);
+  rejects(file({ plates: { [evil]: { id: evil, flags: {} } } }), /index plate/);
+  rejects(file({ protocols: { [evil]: { id: evil } } }), /protocol/);
+});
+
+test('names that exist on every object are not accepted as ids', () => {
+  for (const id of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) assert.equal(isSafeId(id), false, id);
+  rejects('{"format":"benchbook-backup","batches":{"__proto__":{"id":"__proto__","name":"x","n":1,"overagePct":0,"protocol":{},"state":{}}}}', /unusable id/);
+});
+
+test('counts must be numbers in range', () => {
+  rejects(file({ batches: { a: { ...batch('a', 'A'), n: '5<b>' } } }), /reaction count/);
+  rejects(file({ batches: { a: { ...batch('a', 'A'), n: 0 } } }), /reaction count/);
+  rejects(file({ batches: { a: { ...batch('a', 'A'), overagePct: 'ten' } } }), /overage/);
+  rejects(file({ batches: [batch('a', 'A')] }), /damaged/);
+});
+
+test('every id this app makes itself is accepted', () => {
+  for (const id of ['seed-b5-hyb', 'seed-udi-plate', 'bmfq1abc', 'i1x2y3z', 'kapa_rna_hyperprep_2', 'q-b5-pre', 'p1abc']) assert.ok(isSafeId(id), id);
 });

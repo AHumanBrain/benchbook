@@ -12,6 +12,7 @@ const root = new URL('../', import.meta.url);
 const read = p => readFileSync(new URL(p, root));
 const hash = buf => createHash('sha1').update(buf).digest('hex').slice(0, 8);
 const fileHash = p => hash(read(p));
+const sha256 = text => `'sha256-${createHash('sha256').update(text).digest('base64')}'`;
 const START = '<!-- stamp:start -->';
 const END = '<!-- stamp:end -->';
 
@@ -22,9 +23,18 @@ export function compute() {
   const parts = [...src.map(f => `src/${f}:${fileHash(`src/${f}`)}`), ...protocols.map(f => `protocols/${f}:${fileHash(`protocols/${f}`)}`), `data/seed.json:${fileHash('data/seed.json')}`];
   const build = hash(parts.join('\n'));
   const imports = Object.fromEntries(js.map(f => [`./src/${f}`, `./src/${f}?v=${fileHash(`src/${f}`)}`]));
+  // Inline scripts are allowed by hash and nothing else: markup that gets into the page cannot run script.
+  const inline = [
+    `try{var t=localStorage.getItem('benchbook.theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}`,
+    JSON.stringify({ imports }),
+    `window.BUILD = "${build}";`,
+  ];
+  const csp = ["default-src 'self'", `script-src 'self' ${inline.map(sha256).join(' ')}`, "style-src 'self' 'unsafe-inline'", "img-src 'self' data:", "connect-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'"].join('; ');
   const block = `${START}
-<script type="importmap">${JSON.stringify({ imports })}</script>
-<script>window.BUILD = "${build}";</script>
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<script>${inline[0]}</script>
+<script type="importmap">${inline[1]}</script>
+<script>${inline[2]}</script>
 <link rel="stylesheet" href="src/style.css?v=${fileHash('src/style.css')}">
 <script type="module" src="src/app.js?v=${fileHash('src/app.js')}"></script>
 ${END}`;

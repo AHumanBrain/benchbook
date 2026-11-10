@@ -22,7 +22,7 @@ function setCard(set, thr) {
   }).join('');
   return `<div class="card"><div class="row spread"><div><h3>${esc(set.label)}</h3>
     <span class="muted small">${sum.n} samples · added ${clock(set.t)} · ${esc(set.format || 'table')}</span></div>
-    <button class="btn small danger" data-act="qc-del" data-id="${set.id}">Delete</button></div>
+    <button class="btn small danger" data-act="qc-del" data-id="${esc(set.id)}">Delete</button></div>
     <div class="stats"><div class="stat"><b>${fmt(sum.median, 1)}</b><span>median ng/µL</span></div>
       <div class="stat"><b>${fmt(sum.min, 1)} – ${fmt(sum.max, 1)}</b><span>range ng/µL</span></div>
       <div class="stat"><b>${sum.flagged}</b><span>flagged of ${sum.n}</span></div></div>

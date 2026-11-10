@@ -14,7 +14,7 @@ A bench-side notebook for library prep and hybrid capture: master-mix maths, ste
 
 ![The pooling plan at the top of a hyb batch](docs/pooling.png)
 
-**Next batch.** One click starts a new batch like an earlier one: same protocol, overage and thermocycler, with the new libraries on the next free index wells. You see exactly which wells before you create it.
+**Next batch.** On a batch's *Batch info* tab, one click starts a new batch like an earlier one: same protocol, overage and thermocycler, with the new libraries on the next free index wells. You see exactly which wells before you create it.
 
 ![Starting the next batch: what you get, including the wells](docs/next.png)
 

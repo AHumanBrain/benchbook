@@ -96,3 +96,7 @@ The tests cover the arithmetic (for example 24 reactions at +10% gives 264, 242 
 
 - Offline use (a service worker) and syncing across devices
 - Sequencing run metrics (NovaSeq InterOp) in a run dashboard
+
+## The Bench tab
+
+Each protocol section is a card. The first step that is not ticked is the *now* step: highlighted, and the only one showing its note button without hovering. Ticking a mix or program folds it to one line (open it with a click); ticking every step of a section folds the section. The Plan tab never folds and has no checkboxes, so it prints as a plain bench sheet. Folding is only a view: the ticks, timers and notes are stored exactly as before.

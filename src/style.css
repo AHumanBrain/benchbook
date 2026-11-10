@@ -60,10 +60,6 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
 .stat b { display: block; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
 .stat span { font-size: 0.8rem; color: var(--muted); }
 
-.section-title { position: sticky; top: 51px; background: var(--bg); padding: 8px 0 6px; z-index: 2; margin: 26px 0 4px; font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid var(--line); }
-.item { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
-.item.done .body > .text, .item.done .body h3 { color: var(--done); text-decoration: line-through; text-decoration-color: var(--line); }
-.check { width: 28px; height: 28px; accent-color: var(--accent); margin-top: 2px; cursor: pointer; }
 body.plan .check, body.plan .bench-only { display: none; }
 body.plan .item { grid-template-columns: 1fr; }
 .hint { color: var(--muted); font-size: 0.88rem; margin: 4px 0 0; }
@@ -104,12 +100,13 @@ details.addnote form { display: grid; grid-template-columns: 1fr auto auto; gap:
 .timeline { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 
 @media print {
-  .top, .tabs, .btn, .bench-only, .check, details.addnote { display: none !important; }
+  .top, .tabs, .btn, .bench-only, .check, .notebox, .acts { display: none !important; }
+  .card { box-shadow: none; }
   body { background: #fff; color: #000; }
   .item { grid-template-columns: 1fr; break-inside: avoid; }
   .section-title { position: static; }
 }
-body.plan .item.done .body > .text, body.plan .item.done .body h3 { color: inherit; text-decoration: none; }
+body.plan .item.done .title { color: inherit; text-decoration: none; font-weight: 600; }
 
 /* QC */
 td.flag { color: var(--warn); font-weight: 650; background: var(--warn-soft); }
@@ -246,3 +243,52 @@ details.newbatch { margin-top: 18px; }
 details.newbatch summary { cursor: pointer; font-weight: 650; color: var(--accent); }
 .foot { margin-top: 18px; }
 .linkbtn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
+
+/* Bench and Plan: a protocol you can read. One card per section, one line per step. */
+.sec { padding: 6px 16px 4px; margin: 14px 0; }
+.section-title { font-size: 1.02rem; margin: 10px 0 2px; color: var(--accent); text-transform: none; letter-spacing: 0; font-weight: 700; }
+.section-title .muted { font-weight: 500; }
+ol.steps { list-style: none; margin: 0; padding: 0; }
+.item { display: grid; grid-template-columns: 24px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; }
+.check { width: 22px; height: 22px; accent-color: var(--accent); margin-top: 2px; cursor: pointer; }
+.item .heading { margin-bottom: 0; }
+.stephead { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.stephead .title { font-weight: 600; }
+.acts { display: inline-flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.aside { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); }
+.item .tablewrap { margin-top: 6px; }
+.item table { font-size: 0.9rem; }
+.item th { font-weight: 500; color: var(--muted); font-size: 0.8rem; }
+/* what to do next */
+.item.now { background: var(--accent-soft); margin: 4px -16px; padding: 12px 16px; border-top-color: transparent; border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; }
+.item.now + .item { border-top-color: transparent; }
+/* finished steps sit quietly */
+.item.done .title { color: var(--done); font-weight: 500; }
+details.folded > summary { cursor: pointer; color: var(--done); list-style: none; }
+details.folded > summary::before { content: '▸ '; }
+details.folded[open] > summary::before { content: '▾ '; }
+details.folded > summary::-webkit-details-marker { display: none; }
+details.folded[open] > summary { color: var(--ink); font-weight: 600; margin-bottom: 4px; }
+details.folded[open] .stephead .title { display: none; }
+details.folded[open] .stephead { justify-content: flex-end; }
+/* the note button shows where you are working, or when you point at a step */
+.btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+.notebtn { opacity: 0; transition: opacity .12s; }
+.item:hover .notebtn, .item:focus-within .notebtn, .item.now .notebtn { opacity: 1; }
+@media (hover: none) { .notebtn { opacity: 1; } }
+.notebox { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; margin-top: 8px; }
+.notebox[hidden] { display: none; }
+@media (max-width: 560px) { .notebox { grid-template-columns: 1fr; } }
+.notes { margin-top: 6px; }
+
+/* a section with every step done folds to one line */
+details.finished { padding: 2px 16px; }
+details.finished > summary { cursor: pointer; list-style: none; margin: 8px 0; color: var(--done); }
+details.finished > summary::-webkit-details-marker { display: none; }
+details.finished > summary::before { content: '▸ '; }
+details.finished[open] > summary::before { content: '▾ '; }
+details.finished[open] > summary { color: var(--accent); }
+details.finished > ol.steps { margin-bottom: 6px; }
+.stephead .title.plain { font-weight: 500; }
+.item.now .stephead .title.plain { font-weight: 600; }

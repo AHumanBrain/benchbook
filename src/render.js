@@ -32,7 +32,8 @@ setInterval(() => {
 }, 1000);
 
 /* ---------- rendering pieces ---------- */
-export function renderMix(step, b) {
+// Each renderer returns { head, detail }: the one line you read first, and the table or numbers under it.
+const mixParts = (step, b) => {
   const t = mixTable(step, b.n, b.overagePct);
   const rows = t.mmRows.map(r => `<tr><td>${esc(r.name)}</td><td class="num">${fmt(r.perRxn)}</td><td class="num"><b>${fmt(r.total, 1)}</b></td></tr>`).join('');
   const adds = t.addRows.map(r => `<tr><td>${esc(r.name)} <span class="muted small">(add per reaction)</span></td><td class="num">${fmt(r.perRxn)}</td><td class="num">${fmt(r.total, 1)}</td></tr>`).join('');
@@ -42,11 +43,13 @@ export function renderMix(step, b) {
   const dispense = t.dispense != null
     ? `<tr class="total"><td>Master mix, dispense per reaction</td><td class="num">${fmt(t.dispense)}</td><td class="num">${fmt(t.mmTotal, 1)} mixed</td></tr>`
     : t.mmRows.length ? `<tr class="total"><td>Total volume to prepare</td><td class="num">${fmt(t.mmPerRxn)}</td><td class="num">${fmt(t.mmTotal, 1)}</td></tr>` : '';
-  const final = t.finalVol ? `<p class="hint">Final reaction volume: ${fmt(t.finalVol)} µL</p>` : '';
-  return `<h3>${esc(step.title)}</h3>
-  <div class="tablewrap"><table><thead><tr><th>Component</th><th class="num">µL / rxn</th><th class="num">µL for ${Number(b.n)} (+${Number(b.overagePct)}%)</th></tr></thead>
-  <tbody>${input}${rows}${dispense}${adds}</tbody></table></div>${final}`;
-}
+  return {
+    head: esc(step.title),
+    detail: `<div class="tablewrap"><table><thead><tr><th>Component</th><th class="num">µL / rxn</th><th class="num">µL for ${Number(b.n)} (+${Number(b.overagePct)}%)</th></tr></thead>
+  <tbody>${input}${rows}${dispense}${adds}</tbody></table></div>`,
+    aside: t.finalVol ? `Final volume ${fmt(t.finalVol)} µL` : '',
+  };
+};
 
 function renderProgramRows(program, indent = false) {
   return program.map(item => {
@@ -57,19 +60,23 @@ function renderProgramRows(program, indent = false) {
   }).join('');
 }
 
-export function renderThermo(step) {
-  const total = programSeconds(step.program);
-  return `<h3>${esc(step.title)}</h3>
-  <div class="tablewrap"><table><thead><tr><th>Step</th><th class="num">Temp</th><th class="num">Time</th></tr></thead><tbody>${renderProgramRows(step.program)}</tbody></table></div>
-  <div class="chips">${total ? `<span class="chip">runs ≈ ${fmtDuration(total)}</span>` : ''}${step.lid_c ? `<span class="chip">lid ${step.lid_c} °C</span>` : ''}</div>`;
-}
+const thermoParts = step => ({
+  head: esc(step.title),
+  detail: `<div class="tablewrap"><table><thead><tr><th>Step</th><th class="num">Temp</th><th class="num">Time</th></tr></thead><tbody>${renderProgramRows(step.program)}</tbody></table></div>`,
+  aside: step.lid_c ? `Lid ${step.lid_c} °C` : '',
+});
 
-export function renderPlain(step, n) {
-  const vol = step.per_rxn_vol != null
-    ? `<div class="chips"><span class="chip">${fmt(step.per_rxn_vol)} µL / rxn</span><span class="chip">${fmt(step.per_rxn_vol * n, 1)} µL for ${n}${step.per_label ? ' ' + esc(step.per_label) : ''}</span></div>`
-    : '';
-  return `<div class="text">${esc(step.text)}</div>${vol}`;
-}
+const plainParts = (step, n) => ({
+  head: esc(step.text),
+  detail: '',
+  aside: step.per_rxn_vol != null ? `${fmt(step.per_rxn_vol)} µL per reaction · ${fmt(step.per_rxn_vol * n, 1)} µL for ${n}${step.per_label ? ' ' + esc(step.per_label) : ''}` : '',
+  plain: true,
+});
+
+// Kept for the protocol editor and tests: the old one-piece renderers.
+export const renderMix = (step, b) => { const x = mixParts(step, b); return `<h3>${x.head}</h3>${x.detail}${x.aside ? `<p class="hint">${x.aside}</p>` : ''}`; };
+export const renderThermo = step => { const x = thermoParts(step); return `<h3>${x.head}</h3>${x.detail}`; };
+export const renderPlain = (step, n) => { const x = plainParts(step, n); return `<div class="text">${x.head}</div>${x.aside ? `<p class="hint">${x.aside}</p>` : ''}`; };
 
 export function timerSeconds(step) {
   if (step.timer_min) return step.timer_min * 60;
@@ -85,32 +92,38 @@ function renderTimer(it, st) {
     return `<span class="timer ${cls}" data-key="${it.key}" data-end="${st.timer}"><span class="clock">${text}</span>
       <button class="btn small" data-act="timer-stop" data-key="${it.key}">Stop</button></span>`;
   }
-  return `<span class="timer"><button class="btn small" data-act="timer-start" data-key="${it.key}">⏱ Start ${fmtDuration(secs)}</button></span>`;
+  if (st.done) return '';
+  return `<span class="timer"><button class="btn small" data-act="timer-start" data-key="${it.key}" title="Start a ${fmtDuration(secs)} timer">⏱ ${fmtDuration(secs)}</button></span>`;
 }
 
-function renderNotes(b, it, st) {
-  const list = (st.notes || []).map((n, i) => `<div class="note ${esc(n.tag)}"><span class="tag">${esc(n.tag)}</span>${esc(n.text)}<span class="when">${clock(n.t)}</span>
-    <button class="btn small bench-only" data-act="note-del" data-key="${it.key}" data-i="${i}" aria-label="Delete note">×</button></div>`).join('');
-  return `<div class="notes">${list}</div>
-  <details class="addnote bench-only"><summary>＋ add note</summary>
-    <form data-act="note-add" data-key="${it.key}">
+const noteList = (it, st) => ((st.notes || []).length
+  ? `<div class="notes">${st.notes.map((n, i) => `<div class="note ${esc(n.tag)}"><span class="tag">${esc(n.tag)}</span>${esc(n.text)}<span class="when">${clock(n.t)}</span>
+    <button class="btn small bench-only" data-act="note-del" data-key="${it.key}" data-i="${i}" aria-label="Delete note">×</button></div>`).join('')}</div>`
+  : '');
+
+const noteForm = it => `<form class="notebox bench-only" data-act="note-add" data-key="${it.key}" hidden>
       <input type="text" name="text" placeholder="What happened?" required autocomplete="off">
       <select name="tag" aria-label="Note type">${NOTE_TAGS.map(t => `<option>${t}</option>`).join('')}</select>
-      <button class="btn small primary">Save</button>
-    </form></details>`;
-}
+      <button class="btn small primary">Save</button></form>`;
 
-export function renderItem(b, it) {
+/** opts.fold: finished mixes and programs shrink to one line. opts.now: this is the step to do next. */
+export function renderItem(b, it, opts = {}) {
   const st = b.state[it.key] || {};
   const s = it.step;
-  const body = s.type === 'mix' ? renderMix(s, b) : s.type === 'thermocycle' ? renderThermo(s) : renderPlain(s, b.n);
-  const note = s.note ? `<p class="hint">${esc(s.note)}</p>` : '';
-  return `<li class="item ${st.done ? 'done' : ''}" id="item-${it.key}">
-    <input class="check" type="checkbox" data-act="toggle" data-key="${it.key}" ${st.done ? 'checked' : ''} aria-label="Mark step done">
+  const x = s.type === 'mix' ? mixParts(s, b) : s.type === 'thermocycle' ? thermoParts(s) : plainParts(s, b.n);
+  const aside = [x.aside, s.note ? esc(s.note) : ''].filter(Boolean).join(' · ');
+  const folded = opts.fold && st.done && !x.plain;
+  const acts = `<span class="acts bench-only">${renderTimer(it, st)}<button class="btn small ghost notebtn" data-act="note-open" aria-label="Add a note to this step" title="Add a note">✎ Note</button></span>`;
+  const headRow = `<div class="stephead"><div class="title ${x.plain ? 'plain' : ''}">${x.head}</div>${acts}</div>`;
+  const inner = `${headRow}${x.detail}${aside ? `<p class="aside">${aside}</p>` : ''}`;
+  const body = folded
+    ? `<details class="folded"><summary>${x.head}<span class="muted small"> · done ${clock(st.done)}</span></summary>${inner}</details>`
+    : inner;
+  return `<li class="item ${st.done ? 'done' : ''} ${opts.now ? 'now' : ''}" id="item-${it.key}">
+    <input class="check" type="checkbox" data-act="toggle" data-key="${it.key}" ${st.done ? 'checked' : ''} aria-label="Mark step done" ${st.done ? `title="done ${clock(st.done)}"` : ''}>
     <div class="body">
       ${it.heading ? `<div class="heading">${esc(it.heading)}</div>` : ''}
-      ${body}${note}
-      <div class="row bench-only">${renderTimer(it, st)}${st.done ? `<span class="muted small">done ${clock(st.done)}</span>` : ''}</div>
-      ${renderNotes(b, it, st)}
+      ${body}
+      ${noteList(it, st)}${noteForm(it)}
     </div></li>`;
 }

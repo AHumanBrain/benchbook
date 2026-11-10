@@ -18,9 +18,9 @@ A bench-side notebook for library prep and hybrid capture: master-mix maths, ste
 
 ![Starting the next batch: what you get, including the wells](docs/next.png)
 
-**Bench.** Enter the number of reactions and the overage, and every volume is worked out. Tick steps off, start timers for binds and incubations, add notes (observation, deviation, error, idea). Print the Plan tab as a bench sheet.
+**Bench.** A step-by-step protocol, one card per section. Enter the number of reactions and the overage, and every volume is worked out. The step to do next is highlighted. Tick it and it folds to one line, and a finished section folds to a single line you can open again. Timed steps have a ⏱ button, and the ✎ Note button adds a note (observation, deviation, error, idea) to the step you are on. Print the Plan tab as a bench sheet.
 
-![A step on the bench: master mix table, tick box and note](docs/bench.png)
+![The next step to do, highlighted, with its master-mix table](docs/bench.png)
 
 **QC and plate.** Paste NanoDrop readings (Qubit and plain two-column tables work too) and low or odd values are flagged. Lay libraries on a 96-well UDI plate (it skips wells that were used or flagged) and get the µL of each library for an equal-mass hyb pool.
 

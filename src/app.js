@@ -56,17 +56,18 @@ function viewProtocol(b, tab) {
   if (tab === 'plan') {
     html += `<div class="row spread"><span class="muted small">All volumes for ${Number(b.n)} ${esc(b.protocol.unit_label)}. Print this page for a bench sheet.</span><button class="btn small" data-act="print">Print</button></div>`;
   }
-  let lastSection = -1;
-  let open = false;
-  for (const it of items) {
-    if (it.si !== lastSection) {
-      if (open) html += '</ol>';
-      html += `<div class="section-title">${esc(b.protocol.sections[it.si].title)}</div><ol style="list-style:none;margin:0;padding:0">`;
-      lastSection = it.si; open = true;
-    }
-    html += renderItem(b, it);
+  const bench = tab !== 'plan';
+  const next = items.find(it => !b.state[it.key]?.done)?.key; // the step to do now
+  const sections = [...new Set(items.map(it => it.si))];
+  for (const si of sections) {
+    const mine = items.filter(it => it.si === si);
+    const done = mine.filter(it => b.state[it.key]?.done).length;
+    const steps = `<ol class="steps">${mine.map(it => renderItem(b, it, { fold: bench, now: bench && it.key === next })).join('')}</ol>`;
+    const title = esc(b.protocol.sections[si].title);
+    html += bench && done === mine.length
+      ? `<details class="card sec finished"><summary class="section-title">${title} <span class="muted small">✓ done</span></summary>${steps}</details>`
+      : `<section class="card sec"><h2 class="section-title">${title}${bench ? ` <span class="muted small">${done}/${mine.length}</span>` : ''}</h2>${steps}</section>`;
   }
-  if (open) html += '</ol>';
   return html;
 }
 
@@ -222,6 +223,11 @@ $app.addEventListener('click', async e => {
     const st = stateOf(b, el.dataset.key), at = Number(el.dataset.i);
     const [gone] = st.notes.splice(at, 1);
     toast('Note deleted.', { undo: () => { st.notes.splice(at, 0, gone); persist(); render(); } });
+  } else if (act === 'note-open') {
+    const box = el.closest('.item').querySelector('.notebox');
+    box.toggleAttribute('hidden');
+    if (!box.hidden) box.querySelector('input').focus();
+    return;
   } else if (act === 'print') {
     window.print(); return;
   } else if (act === 'export' && b) {

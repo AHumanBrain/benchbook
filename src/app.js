@@ -105,20 +105,15 @@ async function viewHome() {
   document.body.className = 'bench';
   const protos = [...await builtins(), ...Object.values(db.protocols).sort((x, y) => x.name.localeCompare(y.name))];
   const list = runsUI.renderBatchList();
-  const st = backupUI.status();
-  const nag = st.level === 'warn' || st.level === 'bad' ? `<a class="card nag" href="#/backup"><b>${esc(st.text)}.</b> Your batches exist only in this browser. <u>Set up a backup</u></a>` : '';
-  return `${nag}<h1>Your batches</h1><div class="batchlist">${list}</div>
-  <h2>New batch</h2>
-  <form class="card" data-act="new-batch"><div class="grid">
+  return `<h1>Your batches</h1><div class="batchlist">${list}</div>
+  <details class="card newbatch"><summary>Start a new batch</summary>
+  <form data-act="new-batch"><div class="grid" style="margin-top:12px">
     <label class="field">Protocol<select name="protocol" data-chg="np-proto">${protos.map(p => `<option value="${esc(p.id)}" data-ov="${Number(p.default_overage_pct) || 10}">${esc(p.name)}${p.custom ? ' (custom)' : ''}</option>`).join('')}</select></label>
     <label class="field">Batch name<input type="text" name="name" placeholder="e.g. batch 7" required></label>
     <label class="field">Reactions<input type="number" name="n" min="1" max="384" value="24" required></label>
-    <label class="field">Master-mix overage %<input type="number" name="overage" min="0" max="50" value="${protos[0]?.default_overage_pct ?? 10}" required></label>
-  </div><div class="row" style="margin-top:12px"><button class="btn primary">Start batch</button></div></form>
-  <h2>Other</h2>
-  <div class="row"><button class="btn" data-act="restore-seed">Restore workbook batches</button>
-    <label class="btn">Import batch JSON<input type="file" accept="application/json" data-act="import" hidden></label></div>
-  <p class="muted small" style="margin-top:18px">Everything stays in this browser (localStorage). Nothing is uploaded anywhere. <a href="#/backup">Back it up</a>. <span class="muted">Build ${esc(window.BUILD || 'dev')}.</span></p>`;
+    <label class="field">Master-mix overage %<input type="number" name="overage" min="0" max="50" value="${Number(protos[0]?.default_overage_pct) || 10}" required></label>
+  </div><div class="row" style="margin-top:12px"><button class="btn primary">Start batch</button></div></form></details>
+  <p class="muted small foot">Stored only in this browser. <a href="#/backup">Back up</a> · <button class="linkbtn" data-act="restore-seed">Restore workbook batches</button> · <label class="linkbtn">Import a batch file<input type="file" accept="application/json" data-act="import" hidden></label> · Build ${esc(window.BUILD || 'dev')}</p>`;
 }
 
 /* ---------- newer version available? ---------- */

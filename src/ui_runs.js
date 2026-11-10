@@ -10,31 +10,24 @@ const ROLE = { prep: 'library prep', hyb: 'hyb & capture' };
 const rev = p => (p.revision ? ` rev ${esc(p.revision)}` : '');
 const cap = t => String(t).charAt(0).toUpperCase() + String(t).slice(1);
 
-/* ---------- the batch list, grouped into runs ---------- */
-function summary(b) {
+/* ---------- the batch list: one quiet card per run ---------- */
+const span = (dates, fallback) => {
+  const days = [dates.prep, dates.hyb, dates.cap, dates.seq].filter(Boolean).sort();
+  if (!days.length) return clock(fallback);
+  return days[0] === days.at(-1) ? clock(days[0]) : `${clock(days[0])} – ${clock(days.at(-1))}`;
+};
+
+const batchLink = b => {
   const p = progress(b, flattenProtocol(b.protocol));
-  return `${esc(b.protocol.name)}${rev(b.protocol)} · ${esc(b.n)} ${esc(b.protocol.unit_label)} · ${p.done}/${p.total} steps${b.seed ? ' · <span class="chip">from workbook</span>' : ''}`;
-}
-
-const buttons = b => `<span class="row btns"><a class="btn small" href="#/next/${esc(b.id)}" title="Start the next batch from this one">Next batch</a><a class="btn small" href="#/b/${esc(b.id)}/bench">Open</a></span>`;
-
-function stageBar(dates) {
-  const pill = (label, d) => `<span class="pill ${d ? 'on' : ''}">${label}<b>${d ? esc(clock(d)) : '–'}</b></span>`;
-  return `<div class="stagebar">${pill('Prep', dates.prep)}<i>→</i>${pill('Hyb', dates.hyb)}<i>→</i>${pill('Capture', dates.cap)}<i>→</i>${pill('Sequencing', dates.seq)}</div>`;
-}
+  const state = p.total && p.done === p.total ? '✓' : `${p.done}/${p.total}`;
+  return `<a class="runlink" href="#/b/${esc(b.id)}/bench">${esc(b.name)} <span class="muted small">${state}</span></a>`;
+};
 
 export function renderBatchList() {
   const runs = runsOf(db.batches);
   if (!runs.length) return '<div class="empty">No batches yet. Start one below.</div>';
-  return runs.map(run => {
-    if (run.batches.length === 1) {
-      const b = run.batches[0];
-      return `<div class="card"><div><a class="title" href="#/b/${esc(b.id)}/bench">${esc(b.name)}</a><div class="muted small">${summary(b)} · ${clock(b.created)}</div></div>${buttons(b)}</div>`;
-    }
-    return `<div class="card run"><div class="row spread"><h3>${esc(run.name)}</h3>${stageBar(run.dates)}</div>
-      ${run.batches.map(b => `<div class="runrow"><span class="chip">${ROLE[roleOf(b)]}</span><span class="grow"><a class="title" href="#/b/${esc(b.id)}/bench">${esc(b.name)}</a>
-        <span class="muted small"> · ${summary(b)}</span></span>${buttons(b)}</div>`).join('')}</div>`;
-  }).join('');
+  return runs.map(run => `<div class="card run"><div class="row spread"><h3>${esc(run.name)}</h3><span class="muted small">${esc(span(run.dates, run.batches[0].created))}</span></div>
+    <div class="runlinks">${run.batches.map(batchLink).join('')}</div></div>`).join('');
 }
 
 /* ---------- start the next batch from this one ---------- */

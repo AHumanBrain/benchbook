@@ -16,11 +16,11 @@ const hydrated = id => hydrateBatch(seed, seed.batches.find(b => b.id === id), e
 const conc = (b, i = 0) => b.qc.sets[i].rows.map(r => r.conc);
 
 /* ---------- the data itself ---------- */
-test('the seed holds the workbook: 8 library-prep batches and 6 hyb and capture batches', () => {
-  assert.equal(seed.batches.length, 14);
-  assert.equal(new Set(seed.batches.map(b => b.id)).size, 14);
+test('the seed holds the workbook and batch 6: 8 library-prep batches and 7 hyb and capture batches', () => {
+  assert.equal(seed.batches.length, 15);
+  assert.equal(new Set(seed.batches.map(b => b.id)).size, 15);
   assert.equal(seed.batches.filter(b => b.id.endsWith('-prep')).length, 8);
-  assert.equal(seed.batches.filter(b => b.id.endsWith('-hyb')).length, 6);
+  assert.equal(seed.batches.filter(b => b.id.endsWith('-hyb')).length, 7);
 });
 
 test('every protocol variant is valid and every tick and note sits on a step that exists', () => {
@@ -42,10 +42,43 @@ test('dates run in order: prep, hyb, capture, sequencing; stale dates are left o
   assert.equal(seed.batches.find(b => b.id === 'seed-b3-hyb').info.seq, ''); // "2609XX" in the workbook
 });
 
-test('batch 6 is planned, not run: nothing ticked, and no readings copied from another tab', () => {
-  const b6 = seed.batches.find(b => b.id === 'seed-b6-prep');
-  assert.equal(Object.values(b6.state).filter(s => s.done).length, 0);
-  assert.equal(b6.qc.sets.length, 0);
+test('batch 6: nothing ticked, and its readings are the real NanoDrop exports, not the stale tab', () => {
+  const prep = seed.batches.find(b => b.id === 'seed-b6-prep'), hyb = seed.batches.find(b => b.id === 'seed-b6-hyb');
+  assert.equal(Object.values(prep.state).filter(s => s.done).length, 0);
+  assert.equal(Object.keys(hyb.state).length, 0);
+  assert.deepEqual(prep.qc.sets.map(s => [s.label, s.rows.length]), [['Pre-capture libraries', 24]]);
+  assert.deepEqual(hyb.qc.sets.map(s => [s.label, s.rows.length]), [['Post-capture libraries', 8]]);
+  const pre = prep.qc.sets[0].rows, post = hyb.qc.sets[0].rows;
+  assert.deepEqual([pre[0].conc, pre[3].conc, pre[23].conc], [425.4, 202.6, 367.2]);
+  assert.deepEqual([post[0].conc, post[2].conc, post[7].conc], [48.5, 57.1, 49.3]);
+  assert.equal(pre[0].r280, 1.87); assert.equal(post[7].r230, 2.06);
+  assert.equal(prep.plate.samples.filter(s => s.pool).length, 24);       // 8 pools of 3 ...
+  assert.equal(new Set(prep.plate.samples.map(s => s.pool)).size, post.length);   // ... one post-capture reading per pool
+  assert.ok(!JSON.stringify([prep, hyb]).match(/Arul|UserA|User name/i));
+});
+
+test('a batch 6 you already started keeps your edits, gains its readings once, and never doubles ones you pasted', () => {
+  const db = mkdb();
+  applySeed(db, seed, { ensure: ensureBatch });
+  // this browser still has seed version 3: batch 6 prep edited, with its own pasted copy of the pre-capture readings
+  const prep = db.batches['seed-b6-prep'];
+  const pasted = { id: 'qmine1', label: 'Pre-capture libraries', t: 'x', format: 'nanodrop', warnings: [], rows: seed.batches.find(b => b.id === 'seed-b6-prep').qc.sets[0].rows.map(r => ({ ...r })) };
+  prep.qc.sets = [pasted]; prep.plate.qcSetId = null; prep.links = []; prep.name = 'my batch 6';
+  delete db.batches['seed-b6-hyb'];
+  db.settings.seedVersion = 3;
+  applySeed(db, seed, { ensure: ensureBatch });
+  assert.equal(prep.name, 'my batch 6');
+  assert.deepEqual(prep.qc.sets.map(s => s.id), ['qmine1']);             // same numbers: not doubled
+  assert.deepEqual(prep.links, ['seed-b6-hyb']);
+  assert.ok(db.batches['seed-b6-hyb']);
+  // and if nothing of the sort was pasted, the readings arrive, and the plate uses them
+  const empty = mkdb(); applySeed(empty, seed, { ensure: ensureBatch });
+  const b = empty.batches['seed-b6-prep']; b.qc.sets = []; b.plate.qcSetId = null; b.name = 'edited'; empty.settings.seedVersion = 3;
+  applySeed(empty, seed, { ensure: ensureBatch });
+  assert.deepEqual(b.qc.sets.map(s => s.id), ['q-b6']);
+  assert.equal(b.plate.qcSetId, 'q-b6');
+  applySeed(empty, seed, { force: true, ensure: ensureBatch });
+  assert.equal(b.qc.sets.length, 1);                                         // once
 });
 
 test('readings are exactly the workbook values', () => {
@@ -140,7 +173,7 @@ test('cleanup text follows the data: no drying, elution buffer', () => {
 /* ---------- loading, editing and backing up the seed ---------- */
 test('seeding adds every batch once, is idempotent, and never touches an edited batch', () => {
   const db = mkdb();
-  assert.equal(applySeed(db, seed, { ensure: ensureBatch }), 14);
+  assert.equal(applySeed(db, seed, { ensure: ensureBatch }), 15);
   assert.equal(applySeed(db, seed, { ensure: ensureBatch }), 0);
   assert.ok(Object.values(db.batches).every(isPristineSeed));
   db.batches['seed-b1-prep'].name = 'my edit';

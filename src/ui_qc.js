@@ -2,6 +2,7 @@ import { parseQC, flagRow, summarize, DEFAULT_THRESHOLDS } from './qc.js';
 import { fmt } from './calc.js';
 import { esc, clock, db, persist, newId, hooks } from './shared.js';
 import { toast } from './toast.js';
+import { roleOf } from './runs.js';
 
 const LABELS = ['RNA input', 'Pre-capture libraries', 'Post-capture libraries', 'Pooled for hyb'];
 
@@ -22,7 +23,8 @@ function setCard(set, thr) {
   }).join('');
   return `<div class="card"><div class="row spread"><div><h3>${esc(set.label)}</h3>
     <span class="muted small">${sum.n} samples · added ${clock(set.t)} · ${esc(set.format || 'table')}</span></div>
-    <button class="btn small danger" data-act="qc-del" data-id="${esc(set.id)}">Delete</button></div>
+    <span class="row"><select class="relabel" data-chg="qc-relabel" data-id="${esc(set.id)}" aria-label="Change what this set is"><option value="">Change to…</option>${LABELS.filter(l => l !== set.label).map(l => `<option>${l}</option>`).join('')}</select>
+      <button class="btn small danger" data-act="qc-del" data-id="${esc(set.id)}">Delete</button></span></div>
     <div class="stats"><div class="stat"><b>${fmt(sum.median, 1)}</b><span>median ng/µL</span></div>
       <div class="stat"><b>${fmt(sum.min, 1)} – ${fmt(sum.max, 1)}</b><span>range ng/µL</span></div>
       <div class="stat"><b>${sum.flagged}</b><span>flagged of ${sum.n}</span></div></div>
@@ -33,13 +35,17 @@ function setCard(set, thr) {
 export function render(b, header) {
   const thr = db.settings.qc;
   const sets = b.qc.sets.map(s => setCard(s, thr)).join('');
+  // Offer the label this batch is most likely to need next: a hyb batch holds post-capture readings, a prep holds pre-capture ones first.
+  const [RNA, PRE, POST, POOL] = LABELS;
+  const order = roleOf(b) === 'hyb' ? [POST, POOL, PRE, RNA] : [PRE, POST, RNA, POOL];
+  const next = order.find(l => !b.qc.sets.some(s => s.label === l)) || order[0];
   const field = (k, label, step) => `<label class="field">${label}<input type="number" step="${step}" min="0" data-chg="qc-thr" data-k="${k}" value="${thr[k]}"></label>`;
   return `${header(b, 'qc')}
   <div class="card"><h3>Add measurements</h3>
     <form data-act="qc-add">
       <div class="grid"><label class="field">What was measured
-        <input type="text" name="label" list="qc-labels" value="Pre-capture libraries" required></label>
-        <datalist id="qc-labels">${LABELS.map(l => `<option value="${l}">`).join('')}</datalist></div>
+        <select name="label" data-chg="qc-label">${LABELS.map(l => `<option ${l === next ? 'selected' : ''}>${l}</option>`).join('')}<option value="__other">Something else…</option></select></label>
+        <label class="field" id="qc-custom" hidden>Name it<input type="text" name="custom" placeholder="e.g. Pool check"></label></div>
       <label class="field" style="margin-top:10px">Paste the table
         <textarea name="text" rows="6" placeholder="Paste a NanoDrop export copied from a spreadsheet (tab-separated, with a header row), a Qubit CSV, or two columns: sample name and concentration." required></textarea></label>
       <label class="field" style="margin-top:10px">Sample names (optional): one per line, in the same order as the rows
@@ -67,6 +73,18 @@ export const clicks = {
 };
 
 export const changes = {
+  'qc-label': el => { // show the name box only for "Something else"; no re-render, so a pasted table is kept
+    const box = el.form.querySelector('#qc-custom');
+    box.hidden = el.value !== '__other';
+    if (!box.hidden) box.querySelector('input').focus();
+    return 'none';
+  },
+  'qc-relabel': (el, b) => {
+    const set = b.qc.sets.find(s => s.id === el.dataset.id);
+    if (!set || !el.value) return 'none';
+    set.label = el.value;
+    toast(`Now labelled "${el.value}".`);
+  },
   'qc-thr': el => {
     const v = Number(el.value);
     if (Number.isFinite(v) && v >= 0) db.settings.qc[el.dataset.k] = v;
@@ -76,8 +94,12 @@ export const changes = {
 export const submits = {
   'qc-add': (form, data, b) => {
     const names = (data.names || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+    const label = (data.label === '__other' ? data.custom : data.label || '').trim();
+    if (!label) { toast('Name what was measured.', { kind: 'warn' }); return 'none'; }
     const { rows, warnings, format } = parseQC(data.text, { names });
     if (!rows.length) { toast(`Nothing usable found: ${warnings.join('; ') || 'no rows'}.`, { kind: 'error' }); return 'none'; }
-    b.qc.sets.push({ id: newId('q'), label: data.label.trim() || 'Measurements', t: new Date().toISOString(), format, warnings, rows });
+    const again = b.qc.sets.some(s => s.label === label);
+    b.qc.sets.push({ id: newId('q'), label, t: new Date().toISOString(), format, warnings, rows });
+    if (again) toast(`This batch already had "${label}" readings. Both are kept; delete one if that was a mistake.`, { kind: 'warn', ms: 9000 });
   },
 };

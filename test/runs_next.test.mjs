@@ -30,8 +30,8 @@ test('roles: stored when present, otherwise guessed from the protocol', () => {
 test('the workbook becomes 7 runs; batch 5 and the RNA isolation test share one hyb', () => {
   const runs = runsOf(fresh().batches);
   assert.equal(runs.length, 7);
-  assert.deepEqual(runs.map(r => r.batches.length).sort(), [1, 2, 2, 2, 2, 2, 3]);
-  assert.equal(runs[0].batches[0].id, 'seed-b6-prep');                       // newest first, still unlinked
+  assert.deepEqual(runs.map(r => r.batches.length).sort(), [2, 2, 2, 2, 2, 2, 3]);
+  assert.deepEqual(runs[0].batches.map(b => b.id), ['seed-b6-prep', 'seed-b6-hyb']);   // newest first
   const big = runs.find(r => r.batches.length === 3);
   assert.deepEqual(big.batches.map(b => b.id), ['seed-b5-prep', 'seed-rnaiso-prep', 'seed-b5-hyb']);   // preps first, then the hyb
   assert.equal(big.name, 'Batch 5 + RNA iso');
@@ -160,7 +160,8 @@ test('the workbook links ship in the seed, both ways, with roles', () => {
     for (const l of b.links) { assert.ok(ids.has(l)); assert.ok(seed.batches.find(x => x.id === l).links.includes(b.id)); }
   }
   assert.deepEqual(seed.batches.find(b => b.id === 'seed-b5-hyb').links.sort(), ['seed-b5-prep', 'seed-rnaiso-prep']);
-  assert.deepEqual(seed.batches.find(b => b.id === 'seed-b6-prep').links, []);
+  assert.deepEqual(seed.batches.find(b => b.id === 'seed-b6-prep').links, ['seed-b6-hyb']);
+  assert.deepEqual(seed.batches.find(b => b.id === 'seed-b6-hyb').links, ['seed-b6-prep']);
 });
 
 test('a newer seed refreshes untouched imports and only adds missing links to edited ones', () => {

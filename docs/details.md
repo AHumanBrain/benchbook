@@ -32,13 +32,13 @@ Export a single batch from its Batch info tab.
 
 ## Your workbook, already loaded
 
-`data/seed.json` holds the lab workbook's 14 batches (8 library preps and 6 hyb and captures: dates, master-mix overage, NanoDrop readings, UDI wells, ticked steps and notes). They load the first time the app opens, so there is data to explore straight away.
+`data/seed.json` holds the lab workbook's batches plus batch 6: 15 in all (8 library preps and 7 hyb and captures: dates, master-mix overage, NanoDrop readings, UDI wells, ticked steps and notes). They load the first time the app opens, so there is data to explore straight away.
 
 - They are ordinary batches: edit them, add notes, delete them. Edited batches are never replaced, and a batch you delete stays deleted. **Restore workbook batches** (on the home page) brings back any you removed.
 - Imported batches count as untouched until you change them. Backups are aware of this: a backup folder that holds your edited version of an imported batch is never overwritten by a fresh copy.
 - What was left out on purpose: personal names, purely administrative steps (LIMS, labels, e-mails), and the Qubit readings (batch 4's tab compared NanoDrop with two Qubit assays; that was a check on the NanoDrop, so only the NanoDrop readings are imported). Ticked steps carry the date only (the workbook has no times).
 - Protocol changes recorded in the workbook are kept: from batch 4 the bead drying step is dropped and elution is 20 µL of water; from batch 5 the adapter is master-mixed with the ligation (50 µL dispense). Batches 1 to 3 used the built-in numbers. Use **Compare** to see them.
-- **Data problems found while importing**, handled as follows: batch 6's NanoDrop table (and its hyb, capture and sequencing dates) was an exact stale copy of the RNA isolation tab, so none of it is imported and batch 6 is shown as planned; hyb batch 2 lists the sample ID `SI_44453-58` twice (the workbook notes pools 3 and 4 went into one tube), kept as recorded with the duplicate warning; batch 3's sequencing date ("2609XX") is blank.
+- **Data problems found while importing**, handled as follows: batch 6's tab in the workbook (its NanoDrop table and its hyb, capture and sequencing dates) was an exact stale copy of the RNA isolation tab, so none of that is imported. Batch 6's readings come from its own NanoDrop exports instead (`scripts/seed/b6_nanodrop.json`: numbers only): 24 pre-capture libraries on the prep and 8 post-capture pools on a new `Batch 6 · hyb`. No step of batch 6 is ticked and the hyb has no dates, because the exports do not say; hyb batch 2 lists the sample ID `SI_44453-58` twice (the workbook notes pools 3 and 4 went into one tube), kept as recorded with the duplicate warning; batch 3's sequencing date ("2609XX") is blank.
 - **Read twice is still one library.** In batch 1, preR23 was read a second time (`preR23_2`) to check for a bubble in the NanoDrop spot. The readings matched (18.7 and 18.5 ng/µL), so it is one library: the first reading is used, the second is recorded in a note and in a warning on the QC tab, and it is not a 25th reading.
 - Pools: libraries are grouped in consecutive sets of the workbook's plex (3, or 6 for the DNase screen). That matches its pool IDs (`SI_44371-44373` is three consecutive libraries). The RNA isolation test's pools are not assigned because the workbook does not say which libraries went where.
 
@@ -100,3 +100,7 @@ The tests cover the arithmetic (for example 24 reactions at +10% gives 264, 242 
 ## The Bench tab
 
 Each protocol section is a card. The first step that is not ticked is the *now* step: highlighted, and the only one showing its note button without hovering. Ticking a mix or program folds it to one line (open it with a click); ticking every step of a section folds the section. The Plan tab never folds and has no checkboxes, so it prints as a plain bench sheet. Folding is only a view: the ticks, timers and notes are stored exactly as before.
+
+### Adding readings to a seeded batch
+
+A newer seed can add readings to a batch you already edited (that is how batch 6's readings reach a browser that has been using batch 6). Each such set carries the seed version that introduced it (`since`). It is added once, only if you have not pasted the same numbers yourself, and never for readings you deleted from an older version.

@@ -453,6 +453,29 @@ def dnase_hyb_set():
     return table(rows, ['no sample IDs in the workbook: named "Pool 1" to "Pool 3" from the # column.'], 'Post-capture libraries', 'q-dnase-hyb', '2026-09-11')
 
 
+B6 = json.load(open(f'{ROOT}/scripts/seed/b6_nanodrop.json'))
+
+
+def b6_set(which, label, qid, prefix, when):
+    """Batch 6's NanoDrop exports (blank Sample ID columns, so the rows are named from the # column). Only the numbers are kept."""
+    rows = [{'name': f'{prefix} {r["n"]}', 'conc': r['conc'], 'rawConc': f'{r["conc"]:g}', 'unit': 'ng/µL', 'nM': None,
+             'r280': r['r280'], 'r230': r['r230'], 'date': r['date']} for r in B6[which]]
+    warn = [f'no sample IDs in the NanoDrop export: named "{prefix} 1" to "{prefix} {len(rows)}" from the # column.']
+    t = table(rows, warn, label, qid, when)
+    t['since'] = 4   # seed version that introduced these readings: older browsers get them added to an edited batch, once
+    return t
+
+
+def b6_hyb():
+    """Batch 6's hyb and capture: only its post-capture readings are known, so no step is ticked and no hyb/capture dates are set."""
+    p = 'xgen_v2'
+    return {
+        'id': 'seed-b6-hyb', 'name': 'Batch 6 · hyb', 'protocol': p, 'n': len(B6['post']), 'overagePct': 10, 'created': '2026-11-17T12:00:00.000', 'seed': True,
+        'info': {'prep': '', 'hyb': '', 'cap': '', 'seq': '', 'thermocycler': '', 'cohyb': ''},
+        'state': {}, 'qc': {'sets': [b6_set('post', 'Post-capture libraries', 'q-b6h', 'Pool', '2026-11-17T13:31:00')]}, 'plate': make_plate([], None, 3, None, None),
+    }
+
+
 def main():
     udi_wells_dnase = [TABS['KAPA RNA HyperPrep - DNase scre'].cell(93 + i, 5).value for i in range(18)]
     batches = [
@@ -470,13 +493,15 @@ def main():
         kapa_batch('KAPA RNA HyperPrep - RNA isolat', 'seed-rnaiso-prep', 'RNA iso · prep', 'kapa_v3', 3, cohyb='Batch 5 (hyb and capture together)', qc_builder=rna_iso, pooled=False),
         xgen_batch('xGen Hyb and Wash v3 - batch 5', 'seed-b5-hyb', 'Batch 5 · hyb', 'xgen_v2', 'KAPA RNA HyperPrep - batch 5',
                    hyb_set('xGen Hyb and Wash v3 - batch 5', make_unique=True, qid='q-b5h'), cohyb='8 pools of 3 from batch 5 and 2 pools of 5 from the RNA isolation test'),
-        # batch 6: library prep started 2026-11-02 but no step is ticked; its NanoDrop table (and its hyb/capture/sequencing dates)
-        # are an exact stale copy of the RNA isolation tab, so no readings are imported.
-        kapa_batch('KAPA RNA HyperPrep - batch 6', 'seed-b6-prep', 'Batch 6 · prep', 'kapa_v3', 3),
+        # batch 6: library prep started 2026-11-02 but no step is ticked; the workbook tab's NanoDrop table (and its hyb/capture/sequencing
+        # dates) are an exact stale copy of the RNA isolation tab, so the readings come from the real NanoDrop exports instead (b6_nanodrop.json).
+        kapa_batch('KAPA RNA HyperPrep - batch 6', 'seed-b6-prep', 'Batch 6 · prep', 'kapa_v3', 3,
+                   qc_builder=lambda ws: [b6_set('pre', 'Pre-capture libraries', 'q-b6', 'Sample', '2026-11-16T11:34:00')]),
+        b6_hyb(),
     ]
     # each library prep and the hyb/capture that processed it (batch 5 and the RNA isolation test were hybridized together)
     pairs = [('seed-b1-prep', 'seed-b1-hyb'), ('seed-b2-prep', 'seed-b2-hyb'), ('seed-dnase-prep', 'seed-dnase-hyb'), ('seed-b3-prep', 'seed-b3-hyb'),
-             ('seed-b4-prep', 'seed-b4-hyb'), ('seed-b5-prep', 'seed-b5-hyb'), ('seed-rnaiso-prep', 'seed-b5-hyb')]
+             ('seed-b4-prep', 'seed-b4-hyb'), ('seed-b5-prep', 'seed-b5-hyb'), ('seed-rnaiso-prep', 'seed-b5-hyb'), ('seed-b6-prep', 'seed-b6-hyb')]
     by_id = {b['id']: b for b in batches}
     for b in batches:
         b['role'] = 'hyb' if b['id'].endswith('-hyb') else 'prep'
@@ -486,7 +511,7 @@ def main():
         by_id[hyb]['links'].append(prep)
     batches.sort(key=lambda b: b['created'])
     seed = {
-        'version': 3,
+        'version': 4,
         'plates': {PLATE: {'id': PLATE, 'name': 'UDI plate (from workbook)', 'flags': {w: 'Noticed lower volume of indexing primers (batch 1)' for w in wells_between('D1', 'D8')}}},
         'protocols': PROTOCOLS,
         'batches': batches,

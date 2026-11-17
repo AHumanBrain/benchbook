@@ -49,7 +49,7 @@ A bench-side notebook for library prep and hybrid capture: master-mix maths, ste
 - Everything is stored in your browser, on one device. Nothing is uploaded.
 - **Back it up:** the chip at the top right shows whether you are safe. Pick a folder (Chrome or Edge) and every change is saved there, or export everything to one file.
 - Deleting something shows a small **Undo** button instead of asking first.
-- The 14 batches from the lab workbook are already loaded, so there is data to look at. They are normal batches: edit or delete them freely.
+- The 15 batches from the lab workbook and batch 6 are already loaded, so there is data to look at. They are normal batches: edit or delete them freely.
 
 ## Run it yourself
 

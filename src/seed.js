@@ -33,11 +33,23 @@ export function hydrateBatch(seed, recipe, ensure) {
  *  set is always exactly as imported and a newer seed may replace it (or drop it if the seed no longer has it). */
 const isSeedSet = set => /^q-[a-z0-9-]+$/i.test(set.id);
 
-function refreshSeedSets(existing, recipe) {
+const sameReadings = (a, b) => a.rows.length === b.rows.length && a.rows.every((r, i) => r.conc === b.rows[i].conc);
+
+function refreshSeedSets(existing, recipe, lastSeen = 0) {
   const fresh = new Map((recipe.qc?.sets || []).map(s => [s.id, s]));
   existing.qc.sets = existing.qc.sets
     .filter(s => !isSeedSet(s) || fresh.has(s.id))
     .map(s => (isSeedSet(s) ? clone(fresh.get(s.id)) : s));
+  // Readings the seed gained since this browser last saw it (`since`): add them, unless you already pasted the same numbers.
+  // Older seeded readings you deleted stay deleted.
+  let added = false;
+  for (const s of fresh.values()) {
+    if ((s.since ?? 0) <= lastSeen) continue;
+    if (existing.qc.sets.some(x => x.id === s.id || sameReadings(x, s))) continue;
+    existing.qc.sets.push(clone(s));
+    added = true;
+  }
+  if (added && !existing.plate?.qcSetId && recipe.plate?.qcSetId && existing.qc.sets.some(s => s.id === recipe.plate.qcSetId)) existing.plate.qcSetId = recipe.plate.qcSetId;
   if (existing.plate?.qcSetId && !existing.qc.sets.some(s => s.id === existing.plate.qcSetId)) existing.plate.qcSetId = recipe.plate?.qcSetId ?? null;
 }
 
@@ -59,7 +71,7 @@ export function applySeed(db, seed, { force = false, ensure }) {
           existing.links = [...recipe.links];
           existing.role ??= recipe.role;
         }
-        refreshSeedSets(existing, recipe);
+        refreshSeedSets(existing, recipe, db.settings.seedVersion ?? 0);
       }
       continue;
     }
